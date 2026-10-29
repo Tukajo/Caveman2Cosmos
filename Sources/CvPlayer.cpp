@@ -94,6 +94,10 @@ int g_iPathTimingDepth = 0;
 int g_iDangerQueryTimingDepth = 0;
 
 // Path caller attribution (see PathCallerTag.h)
+static const char* const s_szPathCallerTimingLogFile = "PathCallerTiming.log";
+static const char* const s_szPlayerTurnTimingLogFile = "PlayerTurnTiming.log";
+static const int MAX_PATH_CALLER_LOG_ENTRIES = 20;
+
 const char* g_apPathCallerTagStack[PATH_CALLER_TAG_MAX_DEPTH];
 int g_iPathCallerTagDepth = 0;
 static int s_iPathCallerTimedPlayer = -1;
@@ -144,18 +148,18 @@ static void dumpPathCallerStats(int iPlayer, int iTurn)
 	{
 		std::vector<std::pair<PathCallerKey, PathCallerStat> > sorted(stats.begin(), stats.end());
 		std::sort(sorted.begin(), sorted.end(), comparePathCallerByMs);
-		FILE* f = fopen("PathCallerTiming.log", "a");
+		FILE* f = fopen(s_szPathCallerTimingLogFile, "a");
 		if (f)
 		{
-			const int iMax = (int)sorted.size() < 20 ? (int)sorted.size() : 20;
-			for (int i = 0; i < iMax; i++)
+			const int iEntriesToLog = (int)sorted.size() < MAX_PATH_CALLER_LOG_ENTRIES ? (int)sorted.size() : MAX_PATH_CALLER_LOG_ENTRIES;
+			for (int iEntryIndex = 0; iEntryIndex < iEntriesToLog; iEntryIndex++)
 			{
-				const std::map<const char*, int>::const_iterator itEntry = s_pathCallerOuterEntries[iPlayer].find(sorted[i].first.first);
+				const std::map<const char*, int>::const_iterator itEntry = s_pathCallerOuterEntries[iPlayer].find(sorted[iEntryIndex].first.first);
 				fprintf(f, "TURN %d PLAYER %d PATH_MS=%.1f PATH_COUNT=%d OUTER=%s OUTER_CALLS=%d INNER=%s\n",
-					iTurn, iPlayer, sorted[i].second.dMs, sorted[i].second.iCount,
-					sorted[i].first.first,
+					iTurn, iPlayer, sorted[iEntryIndex].second.dMs, sorted[iEntryIndex].second.iCount,
+					sorted[iEntryIndex].first.first,
 					itEntry != s_pathCallerOuterEntries[iPlayer].end() ? itEntry->second : 0,
-					sorted[i].first.second);
+					sorted[iEntryIndex].first.second);
 			}
 			fclose(f);
 		}
@@ -349,7 +353,7 @@ static void stopPlayerTurnTiming(int iPlayer, int iTurn, bool bHuman, bool bNPC,
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&now);
 	double dMs = (double)(now.QuadPart - s_playerTurnStart[iPlayer].QuadPart) * 1000.0 / (double)freq.QuadPart;
-	FILE* f = fopen("PlayerTurnTiming.log", "a");
+	FILE* f = fopen(s_szPlayerTurnTimingLogFile, "a");
 	if (f)
 	{
 		fprintf(f, "TURN %d PLAYER %d DURATION_MS=%d SETACTIVE_MS=%d DANGER_MS=%d MOVES_MS=%d AUTO_MS=%d UNITUPDATE_MS=%d GROUPUPDATE_MS=%d GROUPUPDATE_COUNT=%d UNITMOVES_MS=%d UNITMOVES_COUNT=%d SORT_MS=%d PATH_MS=%d PATH_COUNT=%d DANGERQUERY_MS=%d DANGERQUERY_COUNT=%d DANGERINPATH_MS=%d DANGERINPATH_COUNT=%d PATROL_MS=%d PATROL_COUNT=%d ANYATTACK_MS=%d ANYATTACK_COUNT=%d EXPOSEDDANGER_MS=%d EXPOSEDDANGER_COUNT=%d ATTACKODDS_MS=%d ATTACKODDS_COUNT=%d MERGECHECK_MS=%d MERGECHECK_COUNT=%d REACHABLE_MS=%d REACHABLE_COUNT=%d SETINACTIVE_MS=%d HUMAN=%d NPC=%d ALIVE=%d\n",
