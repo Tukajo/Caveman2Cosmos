@@ -33,6 +33,10 @@
 #include "BetterBTSAI.h"
 #include "FAStarNode.h"
 #include "CvArmy.h"
+#include "SubTimerTag.h"
+
+void addPlayerUnitUpdateMs(int iPlayer, double dMs);
+void addPlayerSortMs(int iPlayer, double dMs);
 
 // Plot danger cache
 //#define DANGER_RANGE						(4)
@@ -1395,6 +1399,9 @@ int CvPlayerAI::AI_movementPriority(const CvSelectionGroup* pGroup) const
 void CvPlayerAI::AI_unitUpdate()
 {
 	PROFILE_FUNC();
+	LARGE_INTEGER tUnitUpdateStart, qpcFreq;
+	QueryPerformanceFrequency(&qpcFreq);
+	QueryPerformanceCounter(&tUnitUpdateStart);
 
 	//	Do delayed death here so that empty groups are removed now
 	foreach_(CvSelectionGroup * pLoopSelectionGroup, groups())
@@ -1492,6 +1499,8 @@ void CvPlayerAI::AI_unitUpdate()
 		}
 		else
 		{
+			LARGE_INTEGER tSortStart;
+			QueryPerformanceCounter(&tSortStart);
 			std::vector< std::pair<int, int> > groupList;
 			//Define a Priority Sorting (see AI_movementPriority)
 			LOG_PLAYER_BLOCK(4, {
@@ -1511,6 +1520,10 @@ void CvPlayerAI::AI_unitUpdate()
 			}
 
 			algo::sort(groupList);
+
+			LARGE_INTEGER tSortEnd;
+			QueryPerformanceCounter(&tSortEnd);
+			addPlayerSortMs((int)getID(), (double)(tSortEnd.QuadPart - tSortStart.QuadPart) * 1000.0 / (double)qpcFreq.QuadPart);
 
 			LOG_PLAYER_BLOCK(4, {
 				logAiEvaluations(4,"AI_unitUpdate : List sorted, Applying AI_update for each item for Player %d", getID());
@@ -1605,6 +1618,10 @@ void CvPlayerAI::AI_unitUpdate()
 			m_iStuckBusyGroupTicks = (pBusyGroup != NULL) ? 1 : 0;
 		}
 	}
+
+	LARGE_INTEGER tEnd;
+	QueryPerformanceCounter(&tEnd);
+	addPlayerUnitUpdateMs((int)getID(), (double)(tEnd.QuadPart - tUnitUpdateStart.QuadPart) * 1000.0 / (double)qpcFreq.QuadPart);
 }
 
 
@@ -3728,6 +3745,7 @@ int CvPlayerAI::plotDangerCacheReads = 0;
 int CvPlayerAI::AI_getPlotDanger(const CvPlot* pPlot, int iRange, bool bTestMoves) const
 {
 	PROFILE_FUNC();
+	DangerQueryTimingScope dangerQueryTimingScope((int)getID());
 
 	if (iRange == -1)
 	{
