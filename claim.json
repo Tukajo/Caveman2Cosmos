@@ -1,0 +1,23 @@
+{
+  "base_branch": "master",
+  "branch": "master",
+  "claim_id": "tjfrisch-gmail-com--master",
+  "created_at": "2026-10-29T15:31:56Z",
+  "diagnosis_and_fix": "Add TXT_KEY_UNITHELP_ROLE_NO_MISSION in XML and select appropriate XML key in CvGameTextMgr",
+  "expires_at": "2026-11-01T19:50:14Z",
+  "files": [
+    "Assets/XML/GameText/Units_CIV4GameText.xml",
+    "Sources/CvGameTextMgr.cpp"
+  ],
+  "last_commit_sha": "a67da86ca",
+  "modules": [
+    "Assets/XML/GameText",
+    "Sources"
+  ],
+  "owner_email": "tjfrisch@gmail.com",
+  "owner_name": "Timothy Frisch",
+  "stage": "landed",
+  "symptom": "Unit cards and combat hover show raw TXT_KEY_ or hanging commas",
+  "ticket": null,
+  "updated_at": "2026-10-29T19:50:14Z"
+}
