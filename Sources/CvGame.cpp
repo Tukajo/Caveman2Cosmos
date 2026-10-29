@@ -44,6 +44,7 @@
 
 
 // Turn-transition instrumentation (file-scope to avoid header churn)
+static const char* const s_szTurnTransitionLogFile = "TurnTransition.log";
 static LARGE_INTEGER g_turnTransitionStart;
 static bool g_bTurnTransitionPending = false;
 
@@ -64,7 +65,7 @@ static void logTurnTransitionDuration(int iTurn, int iPlayer)
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&now);
 	double dMs = (double)(now.QuadPart - g_turnTransitionStart.QuadPart) * 1000.0 / (double)freq.QuadPart;
-	FILE* f = fopen("TurnTransition.log", "a");
+	FILE* f = fopen(s_szTurnTransitionLogFile, "a");
 	if (f)
 	{
 		fprintf(f, "TURN %d ENDTURN_TO_HUMAN_READY_MS=%d PLAYER=%d\n", iTurn, (int)(dMs + 0.5), iPlayer);

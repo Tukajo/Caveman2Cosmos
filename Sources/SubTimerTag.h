@@ -77,8 +77,8 @@ struct SimpleTimerScope
 	}
 
 private:
-	int m_iPlayer;
-	AddFunc m_pAddFunc;
+	const int m_iPlayer;
+	const AddFunc m_pAddFunc;
 	LARGE_INTEGER m_tStart;
 	bool m_bActive;
 };
@@ -118,8 +118,8 @@ struct SubTimerScope
 	}
 
 private:
-	int m_iPlayer;
-	AddFunc m_pAddFunc;
+	const int m_iPlayer;
+	const AddFunc m_pAddFunc;
 	int* m_prDepth;
 	LARGE_INTEGER m_tStart;
 	bool m_bActive;
@@ -164,7 +164,7 @@ struct DangerQueryTimingScope
 	}
 
 private:
-	int m_iPlayer;
+	const int m_iPlayer;
 	bool m_bOuter;
 	LARGE_INTEGER m_tStart;
 };
