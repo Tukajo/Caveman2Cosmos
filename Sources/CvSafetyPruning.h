@@ -38,17 +38,33 @@ namespace CvSafetyPruning
 	// Penalty divisor applied when the candidate plot is marked in danger and beats iBestValue.
 	static const int IN_DANGER_SCORE_DIVISOR = 2;
 
+	// Sea movement step multiplier (naval promotions or coastal travel can at most double effective speed).
+	static const int MAX_SEA_SPEED_MULTIPLIER = 2;
+
+	// Minimum turn counts for immobilized or out-of-moves units attempting to reach a non-local plot.
+	static const int MIN_EXHAUSTED_MOVES_PATH_TURNS = 1;
+	static const int MIN_IMMOBILE_PATH_TURNS = 1;
+
+	// Domain types matching DomainTypes in CvEnums.h for standalone test compatibility
+	enum SafetyPruningDomain
+	{
+		SAFETY_DOMAIN_SEA = 0,
+		SAFETY_DOMAIN_AIR = 1,
+		SAFETY_DOMAIN_LAND = 2,
+		SAFETY_DOMAIN_IMMOBILE = 3
+	};
+
 	// Grouped movement characteristics of the unit seeking safety.
 	// Passing this struct replaces multiple scalar/boolean parameters across pruning routines.
 	struct UnitMovementProfile
 	{
 		int iBaseMoves;
 		int iMovesLeft;
-		int iDomain; // DomainTypes (e.g. DOMAIN_LAND=2, DOMAIN_SEA=0, DOMAIN_AIR=1, DOMAIN_IMMOBILE=3)
+		int iDomain; // SafetyPruningDomain or engine DomainTypes
 		bool bFlatMovementCost;
 
 		UnitMovementProfile()
-			: iBaseMoves(1), iMovesLeft(0), iDomain(2 /*DOMAIN_LAND*/), bFlatMovementCost(false)
+			: iBaseMoves(1), iMovesLeft(0), iDomain(SAFETY_DOMAIN_LAND), bFlatMovementCost(false)
 		{
 		}
 
@@ -136,7 +152,7 @@ namespace CvSafetyPruning
 		}
 		if (profile.iMovesLeft <= 0)
 		{
-			return 1;
+			return MIN_EXHAUSTED_MOVES_PATH_TURNS;
 		}
 		if (profile.bFlatMovementCost)
 		{
@@ -146,19 +162,19 @@ namespace CvSafetyPruning
 
 		switch (profile.iDomain)
 		{
-		case 1: // DOMAIN_AIR
+		case SAFETY_DOMAIN_AIR:
 			{
 				const int iAirMoves = std::max(1, profile.iBaseMoves);
 				return std::max(0, (iStepDistance - 1) / iAirMoves);
 			}
-		case 0: // DOMAIN_SEA
+		case SAFETY_DOMAIN_SEA:
 			{
-				const int iMaxSeaSteps = std::max(1, 2 * profile.iBaseMoves);
+				const int iMaxSeaSteps = std::max(1, MAX_SEA_SPEED_MULTIPLIER * profile.iBaseMoves);
 				return std::max(0, (iStepDistance - 1) / iMaxSeaSteps);
 			}
-		case 3: // DOMAIN_IMMOBILE
-			return 1;
-		case 2: // DOMAIN_LAND
+		case SAFETY_DOMAIN_IMMOBILE:
+			return MIN_IMMOBILE_PATH_TURNS;
+		case SAFETY_DOMAIN_LAND:
 		default:
 			return 0;
 		}
