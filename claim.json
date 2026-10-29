@@ -1,0 +1,24 @@
+{
+  "base_branch": "master",
+  "branch": "verify/v45-beta-turn-latency-opt",
+  "claim_id": "tjfrisch-gmail-com--verify-v45-beta-turn-latency-opt",
+  "created_at": "2026-10-29T16:39:18Z",
+  "diagnosis_and_fix": "Cherry-pick latest clean-code commits onto verify branch and compile Release DLL",
+  "expires_at": "2026-11-01T19:50:37Z",
+  "files": [
+    "Sources/CvGame.cpp",
+    "Sources/CvPlayer.cpp",
+    "Sources/CvSafetyPruning.h",
+    "Sources/SubTimerTag.h"
+  ],
+  "last_commit_sha": "1500c59cd",
+  "modules": [
+    "Sources"
+  ],
+  "owner_email": "tjfrisch@gmail.com",
+  "owner_name": "Timothy Frisch",
+  "stage": "landed",
+  "symptom": "Rebuild and deploy clean-code updates to local game",
+  "ticket": null,
+  "updated_at": "2026-10-29T19:50:37Z"
+}
