@@ -28,6 +28,8 @@
 #include "CvDLLInterfaceIFaceBase.h"
 #include "CvDLLUtilityIFaceBase.h"
 #include "CvDLLFAStarIFaceBase.h"
+#include "PathCallerTag.h"
+#include "SubTimerTag.h"
 #ifdef USE_OLD_PATH_GENERATOR
 #include "FAStarNode.h"
 #endif
@@ -1240,6 +1242,7 @@ bool CvSelectionGroup::canStartMission(int iMission, int iData1, int iData2, CvP
 bool CvSelectionGroup::startMission()
 {
 	PROFILE_FUNC();
+	PATH_CALLER_TAG(); // path caller attribution (PathCallerTag.h)
 
 	FAssert(!isBusy());
 	FAssert(getOwner() != NO_PLAYER);
@@ -1992,6 +1995,7 @@ bool CvSelectionGroup::startMission()
 bool CvSelectionGroup::continueMission(int iSteps)
 {
 	PROFILE_FUNC();
+	PATH_CALLER_TAG(); // path caller attribution (PathCallerTag.h)
 
 	CLLNode<MissionData>* missionNode = headMissionQueueNode();
 
@@ -3822,6 +3826,7 @@ void CvSelectionGroup::groupMove(CvPlot* pPlot, bool bCombat, CvUnit* pCombatUni
 bool CvSelectionGroup::groupPathTo(int iX, int iY, int iFlags)
 {
 	PROFILE_FUNC();
+	PATH_CALLER_TAG(); // path caller attribution (PathCallerTag.h)
 
 	CvPlot* pPathPlot;
 
@@ -6025,6 +6030,7 @@ namespace {
 bool CvSelectionGroup::doMergeCheck()
 {
 	PROFILE_EXTRA_FUNC();
+	SUB_TIMER_MERGECHECK(getOwner());
 	bool anyMerged = false;
 
 	while (true)

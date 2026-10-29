@@ -39,6 +39,343 @@
 #include "CvDLLUtilityIFaceBase.h"
 #include "CvTraitInfo.h"
 #include <boost/scoped_ptr.hpp>
+#include <algorithm>
+#include <map>
+#include <vector>
+#include "PathCallerTag.h"
+#include "SubTimerTag.h"
+
+// Per-player turn timing instrumentation
+static LARGE_INTEGER s_playerTurnStart[MAX_PLAYERS];
+static bool s_bPlayerTurnTimingActive[MAX_PLAYERS] = { false };
+static double s_playerSetActiveMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerDangerMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerMovesMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerSetInactiveMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerAutoMissionMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerUnitUpdateMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerGroupUpdateMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerGroupUpdateCount[MAX_PLAYERS] = { 0 };
+static double s_playerUnitMoveMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerUnitMoveCount[MAX_PLAYERS] = { 0 };
+static double s_playerSortMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerPathMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerPathCount[MAX_PLAYERS] = { 0 };
+static double s_playerDangerQueryMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerDangerQueryCount[MAX_PLAYERS] = { 0 };
+static double s_playerDangerInPathMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerDangerInPathCount[MAX_PLAYERS] = { 0 };
+
+// Sub-timer accumulators for unit AI move components
+int g_iPatrolDepth = 0;
+int g_iAnyAttackDepth = 0;
+int g_iExposedDangerDepth = 0;
+int g_iAttackOddsDepth = 0;
+int g_iMergeCheckDepth = 0;
+int g_iReachableDepth = 0;
+
+static double s_playerPatrolMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerPatrolCount[MAX_PLAYERS] = { 0 };
+static double s_playerAnyAttackMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerAnyAttackCount[MAX_PLAYERS] = { 0 };
+static double s_playerExposedDangerMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerExposedDangerCount[MAX_PLAYERS] = { 0 };
+static double s_playerAttackOddsMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerAttackOddsCount[MAX_PLAYERS] = { 0 };
+static double s_playerMergeCheckMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerMergeCheckCount[MAX_PLAYERS] = { 0 };
+static double s_playerReachableMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerReachableCount[MAX_PLAYERS] = { 0 };
+
+// Nesting depth of CvPathGenerator::generatePath (main thread only).
+// Used so that only the outermost path call is timed and so that danger
+// queries issued from inside pathing can be reported separately.
+int g_iPathTimingDepth = 0;
+int g_iDangerQueryTimingDepth = 0;
+
+// Path caller attribution (see PathCallerTag.h)
+const char* g_apPathCallerTagStack[PATH_CALLER_TAG_MAX_DEPTH];
+int g_iPathCallerTagDepth = 0;
+static int s_iPathCallerTimedPlayer = -1;
+
+struct PathCallerStat
+{
+	PathCallerStat() : dMs(0.0), iCount(0) {}
+	double dMs;
+	int iCount;
+};
+typedef std::pair<const char*, const char*> PathCallerKey;
+static std::map<PathCallerKey, PathCallerStat> s_pathCallerStats[MAX_PLAYERS];
+static std::map<const char*, int> s_pathCallerOuterEntries[MAX_PLAYERS];
+
+void notePathCallerOuterEntry(const char* szTag)
+{
+	if (s_iPathCallerTimedPlayer >= 0)
+	{
+		s_pathCallerOuterEntries[s_iPathCallerTimedPlayer][szTag]++;
+	}
+}
+
+static void addPathCallerSample(int iPlayer, double dMs)
+{
+	if (iPlayer < 0 || iPlayer >= MAX_PLAYERS) return;
+	const char* szOuter = "(untagged)";
+	const char* szInner = "(untagged)";
+	if (g_iPathCallerTagDepth > 0)
+	{
+		szOuter = g_apPathCallerTagStack[0];
+		const int iTop = (g_iPathCallerTagDepth < PATH_CALLER_TAG_MAX_DEPTH ? g_iPathCallerTagDepth : PATH_CALLER_TAG_MAX_DEPTH) - 1;
+		szInner = g_apPathCallerTagStack[iTop];
+	}
+	PathCallerStat& stat = s_pathCallerStats[iPlayer][PathCallerKey(szOuter, szInner)];
+	stat.dMs += dMs;
+	stat.iCount++;
+}
+
+static bool comparePathCallerByMs(const std::pair<PathCallerKey, PathCallerStat>& a, const std::pair<PathCallerKey, PathCallerStat>& b)
+{
+	return a.second.dMs > b.second.dMs;
+}
+
+static void dumpPathCallerStats(int iPlayer, int iTurn)
+{
+	std::map<PathCallerKey, PathCallerStat>& stats = s_pathCallerStats[iPlayer];
+	if (!stats.empty())
+	{
+		std::vector<std::pair<PathCallerKey, PathCallerStat> > sorted(stats.begin(), stats.end());
+		std::sort(sorted.begin(), sorted.end(), comparePathCallerByMs);
+		FILE* f = fopen("PathCallerTiming.log", "a");
+		if (f)
+		{
+			const int iMax = (int)sorted.size() < 20 ? (int)sorted.size() : 20;
+			for (int i = 0; i < iMax; i++)
+			{
+				const std::map<const char*, int>::const_iterator itEntry = s_pathCallerOuterEntries[iPlayer].find(sorted[i].first.first);
+				fprintf(f, "TURN %d PLAYER %d PATH_MS=%.1f PATH_COUNT=%d OUTER=%s OUTER_CALLS=%d INNER=%s\n",
+					iTurn, iPlayer, sorted[i].second.dMs, sorted[i].second.iCount,
+					sorted[i].first.first,
+					itEntry != s_pathCallerOuterEntries[iPlayer].end() ? itEntry->second : 0,
+					sorted[i].first.second);
+			}
+			fclose(f);
+		}
+	}
+	stats.clear();
+	s_pathCallerOuterEntries[iPlayer].clear();
+}
+
+// Time spent in CvPathGenerator::generatePath (outermost calls only)
+void addPlayerPathMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerPathMs[iPlayer] += dMs;
+		s_playerPathCount[iPlayer]++;
+		addPathCallerSample(iPlayer, dMs);
+	}
+}
+
+// Time spent in CvPlayerAI::AI_getPlotDanger (outermost calls only).
+// bInsidePath: the query was issued while a generatePath call was in progress
+// (that time is therefore already included in PATH_MS).
+void addPlayerDangerQueryMs(int iPlayer, double dMs, bool bInsidePath)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerDangerQueryMs[iPlayer] += dMs;
+		s_playerDangerQueryCount[iPlayer]++;
+		if (bInsidePath)
+		{
+			s_playerDangerInPathMs[iPlayer] += dMs;
+			s_playerDangerInPathCount[iPlayer]++;
+		}
+	}
+}
+
+// Human inter-turn transition timer defined in CvGame.cpp
+extern void beginTurnTransitionTimer();
+
+static void addPlayerDangerMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerDangerMs[iPlayer] += dMs;
+}
+
+void addPlayerMovesMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerMovesMs[iPlayer] += dMs;
+}
+
+void addPlayerAutoMissionMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerAutoMissionMs[iPlayer] += dMs;
+}
+
+void addPlayerUnitUpdateMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerUnitUpdateMs[iPlayer] += dMs;
+}
+
+void addPlayerSortMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerSortMs[iPlayer] += dMs;
+}
+
+void addPlayerGroupUpdateMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerGroupUpdateMs[iPlayer] += dMs;
+		s_playerGroupUpdateCount[iPlayer]++;
+	}
+}
+
+void addPlayerUnitMoveMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerUnitMoveMs[iPlayer] += dMs;
+		s_playerUnitMoveCount[iPlayer]++;
+	}
+}
+
+static void addPlayerSetActiveMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerSetActiveMs[iPlayer] += dMs;
+}
+
+static void addPlayerSetInactiveMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerSetInactiveMs[iPlayer] += dMs;
+}
+
+void addPlayerPatrolMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerPatrolMs[iPlayer] += dMs;
+		s_playerPatrolCount[iPlayer]++;
+	}
+}
+
+void addPlayerAnyAttackMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerAnyAttackMs[iPlayer] += dMs;
+		s_playerAnyAttackCount[iPlayer]++;
+	}
+}
+
+void addPlayerExposedDangerMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerExposedDangerMs[iPlayer] += dMs;
+		s_playerExposedDangerCount[iPlayer]++;
+	}
+}
+
+void addPlayerAttackOddsMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerAttackOddsMs[iPlayer] += dMs;
+		s_playerAttackOddsCount[iPlayer]++;
+	}
+}
+
+void addPlayerMergeCheckMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerMergeCheckMs[iPlayer] += dMs;
+		s_playerMergeCheckCount[iPlayer]++;
+	}
+}
+
+void addPlayerReachableMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerReachableMs[iPlayer] += dMs;
+		s_playerReachableCount[iPlayer]++;
+	}
+}
+
+static void startPlayerTurnTiming(int iPlayer)
+{
+	if (iPlayer < 0 || iPlayer >= MAX_PLAYERS) return;
+	QueryPerformanceCounter(&s_playerTurnStart[iPlayer]);
+	s_bPlayerTurnTimingActive[iPlayer] = true;
+	s_playerSetActiveMs[iPlayer] = 0.0;
+	s_playerDangerMs[iPlayer] = 0.0;
+	s_playerMovesMs[iPlayer] = 0.0;
+	s_playerSetInactiveMs[iPlayer] = 0.0;
+	s_playerAutoMissionMs[iPlayer] = 0.0;
+	s_playerUnitUpdateMs[iPlayer] = 0.0;
+	s_playerGroupUpdateMs[iPlayer] = 0.0;
+	s_playerGroupUpdateCount[iPlayer] = 0;
+	s_playerUnitMoveMs[iPlayer] = 0.0;
+	s_playerUnitMoveCount[iPlayer] = 0;
+	s_playerSortMs[iPlayer] = 0.0;
+	s_playerPathMs[iPlayer] = 0.0;
+	s_playerPathCount[iPlayer] = 0;
+	s_playerDangerQueryMs[iPlayer] = 0.0;
+	s_playerDangerQueryCount[iPlayer] = 0;
+	s_playerDangerInPathMs[iPlayer] = 0.0;
+	s_playerDangerInPathCount[iPlayer] = 0;
+	s_playerPatrolMs[iPlayer] = 0.0;
+	s_playerPatrolCount[iPlayer] = 0;
+	s_playerAnyAttackMs[iPlayer] = 0.0;
+	s_playerAnyAttackCount[iPlayer] = 0;
+	s_playerExposedDangerMs[iPlayer] = 0.0;
+	s_playerExposedDangerCount[iPlayer] = 0;
+	s_playerAttackOddsMs[iPlayer] = 0.0;
+	s_playerAttackOddsCount[iPlayer] = 0;
+	s_playerMergeCheckMs[iPlayer] = 0.0;
+	s_playerMergeCheckCount[iPlayer] = 0;
+	s_playerReachableMs[iPlayer] = 0.0;
+	s_playerReachableCount[iPlayer] = 0;
+	s_pathCallerStats[iPlayer].clear();
+	s_pathCallerOuterEntries[iPlayer].clear();
+	s_iPathCallerTimedPlayer = iPlayer;
+}
+
+static void stopPlayerTurnTiming(int iPlayer, int iTurn, bool bHuman, bool bNPC, bool bAlive)
+{
+	if (iPlayer < 0 || iPlayer >= MAX_PLAYERS) return;
+	if (!s_bPlayerTurnTimingActive[iPlayer]) return;
+	LARGE_INTEGER freq, now;
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&now);
+	double dMs = (double)(now.QuadPart - s_playerTurnStart[iPlayer].QuadPart) * 1000.0 / (double)freq.QuadPart;
+	FILE* f = fopen("PlayerTurnTiming.log", "a");
+	if (f)
+	{
+		fprintf(f, "TURN %d PLAYER %d DURATION_MS=%d SETACTIVE_MS=%d DANGER_MS=%d MOVES_MS=%d AUTO_MS=%d UNITUPDATE_MS=%d GROUPUPDATE_MS=%d GROUPUPDATE_COUNT=%d UNITMOVES_MS=%d UNITMOVES_COUNT=%d SORT_MS=%d PATH_MS=%d PATH_COUNT=%d DANGERQUERY_MS=%d DANGERQUERY_COUNT=%d DANGERINPATH_MS=%d DANGERINPATH_COUNT=%d PATROL_MS=%d PATROL_COUNT=%d ANYATTACK_MS=%d ANYATTACK_COUNT=%d EXPOSEDDANGER_MS=%d EXPOSEDDANGER_COUNT=%d ATTACKODDS_MS=%d ATTACKODDS_COUNT=%d MERGECHECK_MS=%d MERGECHECK_COUNT=%d REACHABLE_MS=%d REACHABLE_COUNT=%d SETINACTIVE_MS=%d HUMAN=%d NPC=%d ALIVE=%d\n",
+			iTurn, iPlayer, (int)(dMs + 0.5), (int)(s_playerSetActiveMs[iPlayer] + 0.5), (int)(s_playerDangerMs[iPlayer] + 0.5),
+			(int)(s_playerMovesMs[iPlayer] + 0.5), (int)(s_playerAutoMissionMs[iPlayer] + 0.5), (int)(s_playerUnitUpdateMs[iPlayer] + 0.5),
+			(int)(s_playerGroupUpdateMs[iPlayer] + 0.5), s_playerGroupUpdateCount[iPlayer], (int)(s_playerUnitMoveMs[iPlayer] + 0.5), s_playerUnitMoveCount[iPlayer],
+			(int)(s_playerSortMs[iPlayer] + 0.5),
+			(int)(s_playerPathMs[iPlayer] + 0.5), s_playerPathCount[iPlayer],
+			(int)(s_playerDangerQueryMs[iPlayer] + 0.5), s_playerDangerQueryCount[iPlayer],
+			(int)(s_playerDangerInPathMs[iPlayer] + 0.5), s_playerDangerInPathCount[iPlayer],
+			(int)(s_playerPatrolMs[iPlayer] + 0.5), s_playerPatrolCount[iPlayer],
+			(int)(s_playerAnyAttackMs[iPlayer] + 0.5), s_playerAnyAttackCount[iPlayer],
+			(int)(s_playerExposedDangerMs[iPlayer] + 0.5), s_playerExposedDangerCount[iPlayer],
+			(int)(s_playerAttackOddsMs[iPlayer] + 0.5), s_playerAttackOddsCount[iPlayer],
+			(int)(s_playerMergeCheckMs[iPlayer] + 0.5), s_playerMergeCheckCount[iPlayer],
+			(int)(s_playerReachableMs[iPlayer] + 0.5), s_playerReachableCount[iPlayer],
+			(int)(s_playerSetInactiveMs[iPlayer] + 0.5), bHuman ? 1 : 0, bNPC ? 1 : 0, bAlive ? 1 : 0);
+		fclose(f);
+	}
+	dumpPathCallerStats(iPlayer, iTurn);
+	if (s_iPathCallerTimedPlayer == iPlayer)
+	{
+		s_iPathCallerTimedPlayer = -1;
+	}
+	s_bPlayerTurnTimingActive[iPlayer] = false;
+}
 
 //	Koshling - save flag indicating this player has no data in the save as they have never been alive
 #define	PLAYER_UI_FLAG_OMITTED 2
@@ -12133,12 +12470,20 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 	PROFILE_FUNC();
 
 	bool bFinancialTrouble = false;
-	
+	LARGE_INTEGER freq, tCallStart;
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&tCallStart);
+
 	if (m_bTurnActive != bNewValue)
 	{
+		const int iCurrentTurn = GC.getGame().getGameTurn();
+		const bool bIsActivePlayer = (getID() == GC.getGame().getActivePlayer());
+
 		m_bTurnActive = bNewValue;
+
 		if (bNewValue)
 		{
+			startPlayerTurnTiming(getID());
 			PROFILE("CvPlayer::setTurnActive.SetActive");
 
 			if (getID() == GC.getGame().getActivePlayer())
@@ -12272,6 +12617,9 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 			{
 				PROFILE("CvPlayer::setTurnActive.SetActive.CalcDanger");
 
+				LARGE_INTEGER tDangerStart;
+				QueryPerformanceCounter(&tDangerStart);
+
 				//	Calculate plot danger values for this player
 				for (int iI = 0; iI < GC.getMap().numPlots(); iI++)
 				{
@@ -12301,6 +12649,10 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 						addPlotDangerSource(pLoopPlot, iDangerCount/3);
 					}
 				}
+
+				LARGE_INTEGER tDangerEnd;
+				QueryPerformanceCounter(&tDangerEnd);
+				addPlayerDangerMs(getID(), (double)(tDangerEnd.QuadPart - tDangerStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
 			}
 
 			// Send email to disconnected human players if this is the pitboss.
@@ -12372,6 +12724,14 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 		}
 		else
 		{
+			if (bIsActivePlayer && isHumanPlayer())
+			{
+				beginTurnTransitionTimer();
+			}
+			LARGE_INTEGER tInactiveStart;
+			QueryPerformanceCounter(&tInactiveStart);
+			bool bTimingStopped = false;
+
 			PROFILE("CvPlayer::setTurnActive.SetInactive");
 
 			setTurnHadUIInteraction(false);
@@ -12421,6 +12781,13 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 						GC.getGame().setHotPbemBetweenTurns(true);
 					}
 
+					// Record inactive phase and stop player turn timing before activating the next player/team
+					LARGE_INTEGER tInactiveEnd;
+					QueryPerformanceCounter(&tInactiveEnd);
+					addPlayerSetInactiveMs(getID(), (double)(tInactiveEnd.QuadPart - tInactiveStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
+					stopPlayerTurnTiming(getID(), iCurrentTurn, isHumanPlayer(), isNPC(), isAlive());
+					bTimingStopped = true;
+
 					if (!GC.getGame().isSimultaneousTeamTurns())
 					{
 						for (int iI = (getID() + 1); iI < MAX_PLAYERS; iI++)
@@ -12452,7 +12819,22 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 					}
 				}
 			}
+
+			if (!bTimingStopped)
+			{
+				LARGE_INTEGER tInactiveEnd;
+				QueryPerformanceCounter(&tInactiveEnd);
+				addPlayerSetInactiveMs(getID(), (double)(tInactiveEnd.QuadPart - tInactiveStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
+				stopPlayerTurnTiming(getID(), iCurrentTurn, isHumanPlayer(), isNPC(), isAlive());
+			}
 		}
+		if (bNewValue)
+		{
+			LARGE_INTEGER tEnd;
+			QueryPerformanceCounter(&tEnd);
+			addPlayerSetActiveMs(getID(), (double)(tEnd.QuadPart - tCallStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
+		}
+
 		gDLL->getInterfaceIFace()->updateCursorType();
 		gDLL->getInterfaceIFace()->setDirty(Score_DIRTY_BIT, true);
 
