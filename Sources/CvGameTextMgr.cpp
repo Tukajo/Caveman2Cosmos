@@ -2933,24 +2933,36 @@ void CvGameTextMgr::setUnitHelp(CvWStringBuffer &szString, const CvUnit* pUnit, 
 
 #ifdef ENABLE_ROLES_HOVER
 			const CvPlayer& kPlayer = GET_PLAYER(pUnit->getOwner());
-			UnitAITypes eUnitAI = pUnit->AI_getUnitAIType();
-			if (eUnitAI != NO_UNITAI)
+			// Display AI Role/Mission for AI units, automated units, or in debug mode
+			if (!kPlayer.isHuman() || pUnit->isAutomated() || GC.getGame().isDebugMode())
 			{
-				szString.append(NEWLINE);
-				CvWString szStringUnitAi = "";
-				getUnitAIString(szStringUnitAi, eUnitAI);
-				MissionAITypes eMissionAI = pUnit->getGroup()->AI_getMissionAIType();
-				CvWString MissionInfos = "";
-				if (eMissionAI != NO_MISSIONAI)
+				UnitAITypes eUnitAI = pUnit->AI_getUnitAIType();
+				if (eUnitAI != NO_UNITAI)
 				{
-					MissionInfos = MissionAITypeToDescription(eMissionAI);
+					szString.append(NEWLINE);
+					CvWString szStringUnitAi = "";
+					getUnitAIString(szStringUnitAi, eUnitAI);
+					MissionAITypes eMissionAI = pUnit->getGroup()->AI_getMissionAIType();
+					CvWString MissionInfos = "";
+					if (eMissionAI != NO_MISSIONAI)
+					{
+						MissionInfos = MissionAITypeToDescription(eMissionAI);
+					}
+					else if (pUnit->isAutomated())
+					{
+						AutomateTypes eAutomateAI = pUnit->getGroup()->getAutomateType();
+						MissionInfos = AutomateTypeToDescription(eAutomateAI);
+					}
+
+					if (!MissionInfos.empty())
+					{
+						szString.append(gDLL->getText("TXT_KEY_UNITHELP_ROLE", szStringUnitAi.GetCString(), MissionInfos.GetCString()));
+					}
+					else
+					{
+						szString.append(gDLL->getText("TXT_KEY_UNITHELP_ROLE_NO_MISSION", szStringUnitAi.GetCString()));
+					}
 				}
-				else if (pUnit->isAutomated())
-				{
-					AutomateTypes eAutomateAI = pUnit->getGroup()->getAutomateType();
-					MissionInfos = AutomateTypeToDescription(eAutomateAI);
-				}
-				szString.append(gDLL->getText("TXT_KEY_UNITHELP_ROLE", szStringUnitAi.GetCString(), MissionInfos.GetCString()));
 			}
 #endif
 			//Max HP
