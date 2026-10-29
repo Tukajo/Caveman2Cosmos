@@ -1498,12 +1498,23 @@
 	</TEXT>
 	<TEXT>
 		<Tag>TXT_KEY_UNITHELP_ROLE</Tag>
-		<English>[ICON_BULLET]Role: %s1 , Mission: %s2</English>
-		<French>[ICON_BULLET]Rôle: %s1 , Mission: %s2</French>
-		<German>[ICON_BULLET]Role: %s1 , Mission: %s2</German>
-		<Italian>[ICON_BULLET]Role: %s1 , Mission: %s2</Italian>
-		<Polish>[ICON_BULLET]Role: %s1 , Mission: %s2)</Polish>
-		<Russian>[ICON_BULLET]Role: %s1 , Mission: %s2</Russian>
+		<English>[ICON_BULLET]Role: %s1, Mission: %s2</English>
+		<French>[ICON_BULLET]Rôle : %s1, Mission : %s2</French>
+		<German>[ICON_BULLET]Rolle: %s1, Mission: %s2</German>
+		<Italian>[ICON_BULLET]Ruolo: %s1, Missione: %s2</Italian>
+		<Spanish>[ICON_BULLET]Rol: %s1, Misión: %s2</Spanish>
+		<Polish>[ICON_BULLET]Rola: %s1, Misja: %s2</Polish>
+		<Russian>[ICON_BULLET]Роль: %s1, Задание: %s2</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_UNITHELP_ROLE_NO_MISSION</Tag>
+		<English>[ICON_BULLET]Role: %s1</English>
+		<French>[ICON_BULLET]Rôle : %s1</French>
+		<German>[ICON_BULLET]Rolle: %s1</German>
+		<Italian>[ICON_BULLET]Ruolo: %s1</Italian>
+		<Spanish>[ICON_BULLET]Rol: %s1</Spanish>
+		<Polish>[ICON_BULLET]Rola: %s1</Polish>
+		<Russian>[ICON_BULLET]Роль: %s1</Russian>
 	</TEXT>
 	<TEXT>
 		<Tag>TXT_KEY_UNITHELP_MAX_START_ERA</Tag>
