@@ -1,0 +1,23 @@
+{
+  "base_branch": "master",
+  "branch": "perf/turn-latency-opt",
+  "claim_id": "tjfrisch-gmail-com--perf-turn-latency-opt",
+  "created_at": "2026-10-29T14:30:09Z",
+  "diagnosis_and_fix": "Extract named log file constants, make timer scope members const, and name max caller log entries",
+  "expires_at": "2026-11-01T19:50:24Z",
+  "files": [
+    "Sources/CvGame.cpp",
+    "Sources/CvPlayer.cpp",
+    "Sources/SubTimerTag.h"
+  ],
+  "last_commit_sha": "569939d0d",
+  "modules": [
+    "Sources"
+  ],
+  "owner_email": "tjfrisch@gmail.com",
+  "owner_name": "Timothy Frisch",
+  "stage": "landed",
+  "symptom": "Refactor profiling log paths, constify RAII scope members, and clean loop bounds",
+  "ticket": null,
+  "updated_at": "2026-10-29T19:50:24Z"
+}
