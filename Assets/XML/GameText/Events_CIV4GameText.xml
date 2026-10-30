@@ -3860,7 +3860,12 @@
 	</TEXT>
     <TEXT>
         <Tag>TXT_KEY_EVENT_ASSASSIN_DISCOVERED_3_STONE_HELP</Tag>
-        <English>[ICON_BULLET]Receive %d1 [COLOR_UNIT_TEXT][NUM1:Stone Axemen:Stone Axemen][COLOR_REVERT].</English>
+        <English>[ICON_BULLET]Receive %d1 [COLOR_UNIT_TEXT][NUM1:Stone Axeman:Stone Axemen][COLOR_REVERT].</English>
+		<French>[ICON_BULLET]Recevoir %d1 [COLOR_UNIT_TEXT][NUM1:Guerrier:Guerriers] avec Hache en pierre[COLOR_REVERT].</French>
+    </TEXT>
+    <TEXT>
+        <Tag>TXT_KEY_EVENT_ASSASSIN_DISCOVERED_3_HELP_STONE</Tag>
+        <English>[ICON_BULLET]Receive %d1 [COLOR_UNIT_TEXT][NUM1:Stone Axeman:Stone Axemen][COLOR_REVERT].</English>
 		<French>[ICON_BULLET]Recevoir %d1 [COLOR_UNIT_TEXT][NUM1:Guerrier:Guerriers] avec Hache en pierre[COLOR_REVERT].</French>
     </TEXT>
 	<TEXT>
