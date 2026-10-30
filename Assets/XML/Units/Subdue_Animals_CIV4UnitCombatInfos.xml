@@ -15,6 +15,37 @@
 				</InvisibilityIntensityChangeType>
 			</InvisibilityIntensityChangeTypes>
 			<Button>Art/Interface/Buttons/units/sparth/categories/subdued.dds</Button>
+			<Actions>
+				<Action>
+					<MissionType>MISSION_SLAY_ANIMAL</MissionType>
+					<ActionOutcomes>
+						<Outcome>
+							<OutcomeType>OUTCOME_SLAY_ANIMAL</OutcomeType>
+							<iChance>100</iChance>
+							<Yields>
+								<iYield>
+									<Plus>
+										<Constant>20</Constant>
+										<Random>10</Random>
+									</Plus>
+								</iYield>
+								<iYield>
+									<Plus>
+										<Constant>2</Constant>
+										<Random>1</Random>
+									</Plus>
+								</iYield>
+								<iYield>
+									<Plus>
+										<Constant>2</Constant>
+										<Random>3</Random>
+									</Plus>
+								</iYield>
+							</Yields>
+						</Outcome>
+					</ActionOutcomes>
+				</Action>
+			</Actions>
 		</UnitCombatInfo>
         <UnitCombatInfo>
             <Type>UNITCOMBAT_SUBDUED_DIMINUTIVE</Type>

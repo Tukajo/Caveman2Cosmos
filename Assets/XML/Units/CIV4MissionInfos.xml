@@ -1063,7 +1063,7 @@
 			<Description>TXT_KEY_MISSION_BUTCHER</Description>
 			<Help>TXT_KEY_MISSION_BUTCHER_HELP</Help>
 			<Waypoint>NONE</Waypoint>
-			<EntityEventType>ENTITY_EVENT_GREAT_EVENT</EntityEventType>
+			<EntityEventType>NONE</EntityEventType>
 			<iTime>0</iTime>
 			<bTarget>0</bTarget>
 			<bBuild>0</bBuild>
