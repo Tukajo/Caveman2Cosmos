@@ -803,6 +803,13 @@
 		<Russian>от начальной эры)</Russian>
 	</TEXT>
 	<TEXT>
+		<Tag>TXT_KEY_PEDIA_FROM_STARING_ERA</Tag>
+		<English>from starting era)</English>
+		<French>de l'ère)</French>
+		<Italian>a causa dell'era di partenza</Italian>
+		<Russian>от начальной эры)</Russian>
+	</TEXT>
+	<TEXT>
 		<Tag>TXT_KEY_PEDIA_FULL_WAR</Tag>
 		<English>Full War: [BOLD]%d1[\BOLD] (%d2%% Ratio Near, %d3%% Ratio Far, %d4%% Adjacent)[NEWLINE]</English>
 		<French>Guerre Totale: [BOLD]%d1[\BOLD] (%d2%% Ratio Près, %d3%% Ratio Loin, %d4%% Adjacent)[NEWLINE]</French>

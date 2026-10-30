@@ -399,4 +399,96 @@
 		<Polish>Woda &#175;ycia</Polish>
 		<Russian>Живая вода</Russian>
 	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_PURE_COAL_1</Tag>
+		<English>pure coal</English>
+		<French>charbon pur</French>
+		<German>reine Kohle</German>
+		<Italian>carbone puro</Italian>
+		<Spanish>carbón puro</Spanish>
+		<Polish>czysty w&#234;giel</Polish>
+		<Russian>чистый уголь</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_PURE_COAL_2</Tag>
+		<English>pure coal</English>
+		<French>charbon pur</French>
+		<German>reine Kohle</German>
+		<Italian>carbone puro</Italian>
+		<Spanish>carbón puro</Spanish>
+		<Polish>czysty w&#234;giel</Polish>
+		<Russian>чистый уголь</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_PURE_CRUDE_1</Tag>
+		<English>pure crude</English>
+		<French>pétrole pur</French>
+		<German>reines Rohöl</German>
+		<Italian>petrolio puro</Italian>
+		<Spanish>crudo puro</Spanish>
+		<Polish>czysta ropa</Polish>
+		<Russian>чистая сырая нефть</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_PURE_CRUDE_2</Tag>
+		<English>pure crude</English>
+		<French>pétrole pur</French>
+		<German>reines Rohöl</German>
+		<Italian>petrolio puro</Italian>
+		<Spanish>crudo puro</Spanish>
+		<Polish>czysta ropa</Polish>
+		<Russian>чистая сырая нефть</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_LOCAL_MILLS_2</Tag>
+		<English>local mills</English>
+		<French>moulins locaux</French>
+		<German>lokale Mühlen</German>
+		<Italian>mulini locali</Italian>
+		<Spanish>molinos locales</Spanish>
+		<Polish>lokalne m&#179;yny</Polish>
+		<Russian>местные мельницы</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_RESORT_TOWN_2</Tag>
+		<English>resort town</English>
+		<French>ville de tourisme</French>
+		<German>Ferienort-Stadt</German>
+		<Italian>destinazione turistica</Italian>
+		<Spanish>zona turística</Spanish>
+		<Polish>miejscowo&#156;&#230; wypoczynkowa</Polish>
+		<Russian>курортный город</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_PEAT_2</Tag>
+		<English>Peat</English>
+		<French>Tourbe</French>
+		<Italian>Torba</Italian>
+		<Polish>Torf</Polish>
+		<Russian>òîðô</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_PEAT_3</Tag>
+		<English>Peat</English>
+		<French>Tourbe</French>
+		<Italian>Torba</Italian>
+		<Polish>Torf</Polish>
+		<Russian>òîðô</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_TUSK_2</Tag>
+		<English>narwhal tusk</English>
+		<French>défense de narval</French>
+		<Italian>zanna di narvalo</Italian>
+		<Polish>Kiel Narwala</Polish>
+		<Russian>áèâíè íàðâàëà</Russian>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_SIGN_EVENT_TUSK_3</Tag>
+		<English>narwhal tusk</English>
+		<French>défense de narval</French>
+		<Italian>zanna di narvalo</Italian>
+		<Polish>Kiel Narwala</Polish>
+		<Russian>áèâíè íàðâàëà</Russian>
+	</TEXT>
 </Civ4GameText>

@@ -12247,7 +12247,26 @@
 		<English>Ironwood Spearman</English>
 	</TEXT>
 	<TEXT>
+		<Tag>TXT_KEY_UNIT_IRONWOOD_CLUBMAN</Tag>
+		<English>Ironwood Spearman</English>
+		<French>Guerrier avec gourdin en bois de fer</French>
+		<Spanish>
+			<Text>Guerrero con lanza de hierro</Text>
+			<Gender>Male</Gender>
+			<Plural>0</Plural>
+		</Spanish>
+		<Polish>Arauka&#241;ski W&#179;&#243;cznik</Polish>
+		<Russian>Âîèí ñ øåñòîì</Russian>
+		<Italian>Guerriero con mazza di legno ferro</Italian>
+	</TEXT>
+	<TEXT>
 		<Tag>TXT_KEY_UNIT_IRONWOOD_SPEARMAN_PEDIA</Tag>
+		<English>The Mapuche Irownwood Spearman.</English>
+		<French>Le lancier en bois de fer Mapuche.</French>
+		<Polish>Araukanie nigdy nie zostali ujarzmieni przez Ink&#243;w ani hiszpa&#241;skich konkwistador&#243;w, dzi&#234;ki czemu ich pa&#241;stwo istnia&#179;o obok pot&#234;gi hiszpa&#241;skiej, a p&#243;&#159;niej niepodleg&#179;ego Chile a&#191; do roku 1871.</Polish>
+	</TEXT>
+	<TEXT>
+		<Tag>TXT_KEY_UNIT_IRONWOOD_CLUBMAN_PEDIA</Tag>
 		<English>The Mapuche Irownwood Spearman.</English>
 		<French>Le lancier en bois de fer Mapuche.</French>
 		<Polish>Araukanie nigdy nie zostali ujarzmieni przez Ink&#243;w ani hiszpa&#241;skich konkwistador&#243;w, dzi&#234;ki czemu ich pa&#241;stwo istnia&#179;o obok pot&#234;gi hiszpa&#241;skiej, a p&#243;&#159;niej niepodleg&#179;ego Chile a&#191; do roku 1871.</Polish>

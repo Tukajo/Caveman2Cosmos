@@ -3108,6 +3108,15 @@
 		<Russian>Поступают новости об усилении вулканической активности.</Russian>
 	</TEXT>
 	<TEXT>
+		<Tag>TXT_KEY_EVENT_VOLCANO_TRIGGER_ACTIVE</Tag>
+		<English>Reports speak of increased volcanic activity.</English>
+		<French>Des rumeurs courent concernant une augmentation de l'activité volcanique.</French>
+		<German>Es gibt Berichte über erhöhte vulkanische Aktivität.</German>
+		<Italian>Notizie parlano di attività vulcaniche in aumento.</Italian>
+		<Polish>Nadchodz&#185; wie&#156;ci o zwi&#234;kszonej aktywno&#156;ci wulkanicznej.</Polish>
+		<Russian>Поступают новости об усилении вулканической активности.</Russian>
+	</TEXT>
+	<TEXT>
 		<Tag>TXT_KEY_EVENTTRIGGER_WARSHIPS_DONE</Tag>
 		<English>The %s1_civ_adjective people have trained the largest fleet of warships. Advisors across the known world whisper of their fears that this fleet will dominate the seas for centuries to come.</English>
 		<French>Le peuple %s1_civ_adjective a construit la plus grande flotte de navires de guerre. Les conseillers du monde entier craignent que cette flotte ne domine les océans pour les siècles à venir.</French>
@@ -12517,6 +12526,16 @@
 	</TEXT>
     <TEXT>
         <Tag>TXT_KEY_EVENT_TRIGGER_DARWINS_VOYAGE1</Tag>
+        <English>After completing an ocean voyage around the world, one of our scientists has published a new theory of the origins of life based on his studies of the strange animals in foreign lands.</English>
+        <French>Après avoir réalisé un voyage maritime tout autour du monde, un de nos scientifiques a édité une nouvelle théorie des origines de la vie basées sur ses études des animaux exotiques dans les terres lointaines. Les nouvelles de cette théorie ont stimulé la recherche dans tout l'empire.</French>
+        <German>Nachdem er eine Ozeanreise rund um die Welt durchgeführt hat, hat einer unserer Wissenschaftler eine neue Theorie über den Ursprung des Lebens veröffentlicht, basierend auf seinen Studien der eigenartigen Tiere in fremden Ländern. Die Verbreitung dieser Theorie hat die Forschung im ganzen Land befruchtet.</German>
+        <Italian>Dopo avere completato un viaggio dell'oceano intorno al mondo, uno dei nostri scienziati ha pubblicato una nuova teoria sulle origini della vita basata sui suoi studi degli animali sconosciuti in terre straniere. Le notizie di questa teoria hanno stimolato la ricerca in tutto l'Impero.</Italian>
+        <Spanish>Tras completar un viaje por los océanos de todo el mundo, uno de nuestros científicos ha publicado una nueva teoría sobre los orígenes de la vida basada en sus estudios de los animales extraños en tierras extranjeras. Las noticias acerca de esta teoría han estimulado la investigación por todo el imperio.</Spanish>
+        <Polish>Po zako&#241;czeniu podr&#243;&#191;y dooko&#179;a &#156;wiata, jeden z naszych naukowc&#243;w opublikowa&#179; now&#185; teori&#234; o pocz&#185;tkach &#191;ycia, w oparciu o badania nad dziwnymi zwierz&#234;tami na obcych ziemiach. Wie&#156;ci o tej teorii szybko obieg&#179;y ca&#179;e Imperium.</Polish>
+        <Russian>Один из наших зоологов после завершения кругосветного путешествия по морю опубликовал новую теорию происхождения жизни, основанную на его исследованиях экзотических животных. Новые положения из этой теории существенно продвинули вперед отечественную науку.</Russian>
+    </TEXT>
+    <TEXT>
+        <Tag>TXT_KEY_EVENT_TRIGGER_DARWINS_VOYAGE</Tag>
         <English>After completing an ocean voyage around the world, one of our scientists has published a new theory of the origins of life based on his studies of the strange animals in foreign lands.</English>
         <French>Après avoir réalisé un voyage maritime tout autour du monde, un de nos scientifiques a édité une nouvelle théorie des origines de la vie basées sur ses études des animaux exotiques dans les terres lointaines. Les nouvelles de cette théorie ont stimulé la recherche dans tout l'empire.</French>
         <German>Nachdem er eine Ozeanreise rund um die Welt durchgeführt hat, hat einer unserer Wissenschaftler eine neue Theorie über den Ursprung des Lebens veröffentlicht, basierend auf seinen Studien der eigenartigen Tiere in fremden Ländern. Die Verbreitung dieser Theorie hat die Forschung im ganzen Land befruchtet.</German>
