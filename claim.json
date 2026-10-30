@@ -1,0 +1,25 @@
+{
+  "base_branch": "master",
+  "branch": "fix/butcher-entity-event-type",
+  "claim_id": "tjfrisch-gmail-com--fix-butcher-entity-event-type",
+  "created_at": "2026-10-30T15:02:29Z",
+  "diagnosis_and_fix": "Add missing TXT_KEY_SIGN_EVENT_* tags to _MapEventSigns_CIV4GameText.xml and add backward-compatibility aliases in GameText",
+  "expires_at": "2026-11-02T15:28:56Z",
+  "files": [
+    "Assets/XML/GameText/Events_CIV4GameText.xml",
+    "Assets/XML/GameText/Pedia_CIV4GameText.xml",
+    "Assets/XML/GameText/Special/_MapEventSigns_CIV4GameText.xml",
+    "Assets/XML/GameText/Units_CIV4GameText.xml"
+  ],
+  "last_commit_sha": "72dbe7c6b",
+  "modules": [
+    "Assets/XML/GameText",
+    "Assets/XML/GameText/Special"
+  ],
+  "owner_email": "tjfrisch@gmail.com",
+  "owner_name": "Timothy Frisch",
+  "stage": "landed",
+  "symptom": "Event map signs and legacy aliases render raw unlocalized TXT_KEY strings",
+  "ticket": null,
+  "updated_at": "2026-10-30T15:28:56Z"
+}
