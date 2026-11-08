@@ -8,6 +8,7 @@
 #include "CvRandom.h"
 #include "CvPlayerAI.h"
 #include "CheckSum.h"
+#include "SubTimerTag.h"
 
 #ifdef DYNAMIC_PATH_STRUCTURE_VALIDATION
 #define	VALIDATE_TREE(x,y,z)	ValidateTree(x,y,z);
@@ -763,6 +764,8 @@ static void ValidatePathNode(CvPathNode* node)
 bool CvPathGenerator::generatePath(const CvPlot* pFrom, const CvPlot* pTo, CvSelectionGroup* pGroup, int iFlags, int iMaxTurns, int iOptimizationLimit)
 {
 	PROFILE_FUNC();
+	// Per-player PATH_MS instrumentation (outermost call only; see SubTimerTag.h / CvPlayer.cpp)
+	PathTimingScope pathTimingScope(pGroup != NULL ? (int)pGroup->getOwner() : -1);
 	PROFILE_BEGIN_CONDITIONAL("CvPathGenerator::generatePath.Success", "CvPathGenerator::generatePath.Failure",PATH1);
 
 	CvPathNode* root;

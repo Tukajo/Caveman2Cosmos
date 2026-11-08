@@ -36,10 +36,43 @@
 #include "CvDLLUtilityIFaceBase.h"
 #include "CvBuildingFilters.h"
 #include "CvUnitFilters.h"
+#include <Psapi.h>
 
 #ifdef NO_RANDOM
 	int iNumAlea;
 #endif
+
+
+// Turn-transition instrumentation (file-scope to avoid header churn)
+static const char* const s_szTurnTransitionLogFile = "TurnTransition.log";
+static LARGE_INTEGER g_turnTransitionStart;
+static bool g_bTurnTransitionPending = false;
+
+void addPlayerMovesMs(int iPlayer, double dMs);
+void addPlayerAutoMissionMs(int iPlayer, double dMs);
+
+void beginTurnTransitionTimer()
+{
+	if (g_bTurnTransitionPending) return;
+	QueryPerformanceCounter(&g_turnTransitionStart);
+	g_bTurnTransitionPending = true;
+}
+
+static void logTurnTransitionDuration(int iTurn, int iPlayer)
+{
+	if (!g_bTurnTransitionPending) return;
+	LARGE_INTEGER freq, now;
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&now);
+	double dMs = (double)(now.QuadPart - g_turnTransitionStart.QuadPart) * 1000.0 / (double)freq.QuadPart;
+	FILE* f = fopen(s_szTurnTransitionLogFile, "a");
+	if (f)
+	{
+		fprintf(f, "TURN %d ENDTURN_TO_HUMAN_READY_MS=%d PLAYER=%d\n", iTurn, (int)(dMs + 0.5), iPlayer);
+		fclose(f);
+	}
+	g_bTurnTransitionPending = false;
+}
 
 
 //	Koshling - save game compatibility between (most) builds
@@ -5750,17 +5783,27 @@ void CvGame::doTurn()
 {
 	PROFILE_BEGIN("CvGame::doTurn()",DOTURN1);
 
+	LARGE_INTEGER g_benchFreq, g_benchStart, g_benchEnd;
+	QueryPerformanceFrequency(&g_benchFreq);
+	QueryPerformanceCounter(&g_benchStart);
+
+	LARGE_INTEGER tInitStart = g_benchStart;
 	writeRealtimeLogMetadata(false);
+	LARGE_INTEGER tInitEnd;
+	QueryPerformanceCounter(&tInitEnd);
 
 	// END OF TURN
 	CvEventReporter::getInstance().beginGameTurn( getGameTurn() );
 
+	LARGE_INTEGER tPreTeamsStart;
+	QueryPerformanceCounter(&tPreTeamsStart);
 	doUpdateCacheOnTurn();
-
 	updateScore();
-
 	doDeals();
+	LARGE_INTEGER tPreTeamsEnd;
+	QueryPerformanceCounter(&tPreTeamsEnd);
 
+	LARGE_INTEGER tTeamsStart = tPreTeamsEnd;
 	for (int iI = 0; iI < MAX_TEAMS; iI++)
 	{
 		if (GET_TEAM((TeamTypes)iI).isAlive())
@@ -5768,7 +5811,13 @@ void CvGame::doTurn()
 			GET_TEAM((TeamTypes)iI).doTurn();
 		}
 	}
+	LARGE_INTEGER tTeamsEnd;
+	QueryPerformanceCounter(&tTeamsEnd);
 
+	LARGE_INTEGER tMapsStart = tTeamsEnd;
+	double dPropMsTotal = 0.0;
+	double dMapMsTotal = 0.0;
+	double dMultiMapMsTotal = 0.0;
 	reverse_foreach_(CvMap* map, GC.getMaps())
 	{
 		if (map->plotsInitialized())
@@ -5776,9 +5825,19 @@ void CvGame::doTurn()
 			GC.switchMap(map->getType());
 
 			// solve property system
+			LARGE_INTEGER tPropStart;
+			QueryPerformanceCounter(&tPropStart);
 			m_PropertySolver.doTurn();
+			LARGE_INTEGER tPropEnd;
+			QueryPerformanceCounter(&tPropEnd);
+			dPropMsTotal += (double)(tPropEnd.QuadPart - tPropStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
 
+			LARGE_INTEGER tMapStart;
+			QueryPerformanceCounter(&tMapStart);
 			map->doTurn();
+			LARGE_INTEGER tMapEnd;
+			QueryPerformanceCounter(&tMapEnd);
+			dMapMsTotal += (double)(tMapEnd.QuadPart - tMapStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
 
 			if (map->getType() != MAP_EARTH)
 			{
@@ -5786,13 +5845,21 @@ void CvGame::doTurn()
 				{
 					if (GET_PLAYER(ePlayer).isAlive())
 					{
+						LARGE_INTEGER tMStart;
+						QueryPerformanceCounter(&tMStart);
 						GET_PLAYER(ePlayer).doMultiMapTurn();
+						LARGE_INTEGER tMEnd;
+						QueryPerformanceCounter(&tMEnd);
+						dMultiMapMsTotal += (double)(tMEnd.QuadPart - tMStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
 					}
 				}
 			}
 		}
 	}
+	LARGE_INTEGER tMapsEnd;
+	QueryPerformanceCounter(&tMapsEnd);
 
+	LARGE_INTEGER tBarbStart = tMapsEnd;
 	createBarbarianCities(false);
 	if (isOption(GAMEOPTION_BARBARIAN_NEANDERTHAL_CITIES))
 	{
@@ -5828,7 +5895,10 @@ void CvGame::doTurn()
 		pLoopPlot->clearVisibilityCounts();
 	}
 	GC.getMap().updateSight(true, false);
+	LARGE_INTEGER tBarbEnd;
+	QueryPerformanceCounter(&tBarbEnd);
 
+	LARGE_INTEGER tPreEndStart = tBarbEnd;
 	CvEventReporter::getInstance().preEndGameTurn(getGameTurn());
 
 	gDLL->getInterfaceIFace()->setEndTurnMessage(false);
@@ -5887,6 +5957,10 @@ void CvGame::doTurn()
 				if (!isPbem() || GET_PLAYER((PlayerTypes)iI).isHumanPlayer())
 				{
 					GET_PLAYER((PlayerTypes)iI).setTurnActive(true);
+					if (GET_PLAYER((PlayerTypes)iI).isHumanPlayer())
+					{
+						logTurnTransitionDuration(getGameTurn(), iI);
+					}
 					FAssert(getNumGameTurnActive() == 1);
 				}
 				else if (iI == getActivePlayer())
@@ -5894,6 +5968,10 @@ void CvGame::doTurn()
 					// Nobody else left alive
 					GC.getInitCore().setType(GAME_HOTSEAT_NEW);
 					GET_PLAYER((PlayerTypes)iI).setTurnActive(true);
+					if (GET_PLAYER((PlayerTypes)iI).isHumanPlayer())
+					{
+						logTurnTransitionDuration(getGameTurn(), iI);
+					}
 				}
 				else if (!getPbemTurnSent())
 				{
@@ -5916,7 +5994,13 @@ void CvGame::doTurn()
 	testVictory();
 
 	gDLL->getEngineIFace()->SetDirty(GlobePartialTexture_DIRTY_BIT, true);
+	LARGE_INTEGER tPreEndEnd;
+	QueryPerformanceCounter(&tPreEndEnd);
+
+	LARGE_INTEGER tEngineStart = tPreEndEnd;
 	gDLL->getEngineIFace()->DoTurn();
+	LARGE_INTEGER tEngineEnd;
+	QueryPerformanceCounter(&tEngineEnd);
 
 	PROFILE_END(DOTURN1);
 
@@ -5929,12 +6013,48 @@ void CvGame::doTurn()
 	}
 
 	stopProfilingDLL(true);
+	LARGE_INTEGER tAutoStart;
+	QueryPerformanceCounter(&tAutoStart);
 	gDLL->getEngineIFace()->AutoSave();
+	LARGE_INTEGER tAutoEnd;
+	QueryPerformanceCounter(&tAutoEnd);
 
 #ifdef MEMTRACK
 	//MemTrack::TrackListMemoryUsage(); // total
 	MemTrack::TrackListMemoryUsageTurnDiff(); // leaks
 #endif
+
+	QueryPerformanceCounter(&g_benchEnd);
+	double dTurnMs = (double)(g_benchEnd.QuadPart - g_benchStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dInitMs = (double)(tInitEnd.QuadPart - tInitStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dPreTeamsMs = (double)(tPreTeamsEnd.QuadPart - tPreTeamsStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dTeamsMs = (double)(tTeamsEnd.QuadPart - tTeamsStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dMapsMs = (double)(tMapsEnd.QuadPart - tMapsStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dBarbMs = (double)(tBarbEnd.QuadPart - tBarbStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dPreEndMs = (double)(tPreEndEnd.QuadPart - tPreEndStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dEngineDoTurnMs = (double)(tEngineEnd.QuadPart - tEngineStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	double dAutoSaveMs = (double)(tAutoEnd.QuadPart - tAutoStart.QuadPart) * 1000.0 / (double)g_benchFreq.QuadPart;
+	PROCESS_MEMORY_COUNTERS pmc;
+	DWORD dwMemMb = 0;
+	if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+	{
+		dwMemMb = (DWORD)(pmc.WorkingSetSize / (1024 * 1024));
+	}
+	FILE* fBench = fopen("TurnBenchmark.log", "a");
+	if (fBench)
+	{
+		fprintf(fBench, "TURN %d TOTAL_MS=%d PROP_MS=%d CITY_MS=%d UNIT_MS=%d PATH_CALLS=%d MEM_MB=%u\n",
+			getGameTurn(), (int)dTurnMs, (int)(dPropMsTotal + 0.5), (int)(dMapMsTotal + 0.5), (int)(dMultiMapMsTotal + 0.5), 0, (unsigned int)dwMemMb);
+		fclose(fBench);
+	}
+	FILE* fBenchDet = fopen("TurnBenchmarkDetailed.log", "a");
+	if (fBenchDet)
+	{
+		fprintf(fBenchDet, "TURN %d TOTAL_MS=%d INIT_MS=%d PRETEAMS_MS=%d TEAMS_MS=%d MAPS_MS=%d PROP_MS=%d MAP_DO_MS=%d MULTIMAP_MS=%d BARB_MS=%d PREEND_MS=%d ENG_DOTURN_MS=%d AUTOSAVE_MS=%d MEM_MB=%u\n",
+			getGameTurn(), (int)dTurnMs, (int)(dInitMs + 0.5), (int)(dPreTeamsMs + 0.5), (int)(dTeamsMs + 0.5), (int)dMapsMs, (int)(dPropMsTotal + 0.5), (int)(dMapMsTotal + 0.5), (int)(dMultiMapMsTotal + 0.5), (int)(dBarbMs + 0.5), (int)(dPreEndMs + 0.5), (int)(dEngineDoTurnMs + 0.5), (int)(dAutoSaveMs + 0.5), (unsigned int)dwMemMb);
+		fclose(fBenchDet);
+	}
+
 }
 
 
@@ -7143,6 +7263,9 @@ void CvGame::updateMoves()
 {
 	PROFILE_FUNC();
 
+	LARGE_INTEGER freq, tMoveStart, tMoveEnd, tAutoStart, tAutoEnd;
+	QueryPerformanceFrequency(&freq);
+
 	int aiShuffle[MAX_PLAYERS];
 
 	if (!isMPOption(MPOPTION_SIMULTANEOUS_TURNS))
@@ -7163,6 +7286,8 @@ void CvGame::updateMoves()
 		if (!player.isAlive() || !player.isTurnActive())
 			continue;
 
+		QueryPerformanceCounter(&tMoveStart);
+
 		const bool isHuman = player.isHumanPlayer();
 		const bool isAutoMoves = player.isAutoMoves();
 
@@ -7180,7 +7305,11 @@ void CvGame::updateMoves()
 				{
 					player.AI_unitUpdate();
 				}
+
+				QueryPerformanceCounter(&tAutoStart);
 				algo::for_each(player.groups(), CvSelectionGroup::fn::autoMission());
+				QueryPerformanceCounter(&tAutoEnd);
+				addPlayerAutoMissionMs(iPlayer, (double)(tAutoEnd.QuadPart - tAutoStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
 
 				if (!player.hasBusyUnit())
 				{
@@ -7204,7 +7333,10 @@ void CvGame::updateMoves()
 		{
 			PROFILE("CvGame::updateMoves.AI");
 
+			QueryPerformanceCounter(&tAutoStart);
 			algo::for_each(player.groups(), CvSelectionGroup::fn::autoMission());
+			QueryPerformanceCounter(&tAutoEnd);
+			addPlayerAutoMissionMs(iPlayer, (double)(tAutoEnd.QuadPart - tAutoStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
 
 			if (!isAutoMoves)
 			{
@@ -7221,6 +7353,9 @@ void CvGame::updateMoves()
 				player.setAutoMoves(false);
 			}
 		}
+
+		QueryPerformanceCounter(&tMoveEnd);
+		addPlayerMovesMs(iPlayer, (double)(tMoveEnd.QuadPart - tMoveStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
 	}
 }
 

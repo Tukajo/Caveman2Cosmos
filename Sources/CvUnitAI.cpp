@@ -34,6 +34,19 @@
 #endif
 #include <CvWorkerService.h>
 #include "CvSafetyPruning.h"
+#include "PathCallerTag.h"
+#include "SubTimerTag.h"
+
+// Path caller attribution: in non-profiling builds PROFILE_FUNC / PROFILE_EXTRA_FUNC are
+// empty, so for this file only we redefine them to push a caller tag (see PathCallerTag.h).
+// They are restored to empty at the end of this file so other unity-build files are unaffected.
+#ifndef FP_PROFILE_ENABLE
+#define C2C_PATH_CALLER_TAGS_ACTIVE
+#undef PROFILE_FUNC
+#undef PROFILE_EXTRA_FUNC
+#define PROFILE_FUNC() PATH_CALLER_TAG()
+#define PROFILE_EXTRA_FUNC() PATH_CALLER_TAG()
+#endif
 
 PlayerTypes	CvUnitAI::m_cachedPlayer = NO_PLAYER;
 CvReachablePlotSet* CvUnitAI::m_cachedMissionaryPlotset = NULL;
@@ -528,6 +541,8 @@ bool CvUnitAI::AI_update()
 
 void CvUnitAI::doUnitAIMove()
 {
+	SimpleTimerScope unitMoveTimer((int)getOwner(), addPlayerUnitMoveMs);
+
 	LOG_UNIT_BLOCK(4, {
 		UnitAITypes eUnitAi = AI_getUnitAIType();
 		MissionAITypes eMissionAI = getGroup()->AI_getMissionAIType();
@@ -1162,6 +1177,7 @@ int CvUnitAI::AI_attackOdds(const CvPlot* pPlot, bool bPotentialEnemy, CvUnit** 
 int CvUnitAI::AI_attackOddsAtPlot(const CvPlot* pPlot, CvUnit* pDefender, bool modifyPredictedResults)
 {
 	PROFILE_FUNC();
+	SUB_TIMER_ATTACKODDS(getOwner());
 
 	if (pDefender == NULL)
 	{
@@ -16305,6 +16321,7 @@ bool CvUnitAI::AI_seaAreaAttack()
 bool CvUnitAI::AI_patrol(bool bIgnoreDanger)
 {
 	PROFILE_FUNC();
+	SUB_TIMER_PATROL(getOwner());
 
 	int iBestValue = 0;
 	const CvPlot* pBestPlot = NULL;
@@ -17533,6 +17550,7 @@ bool CvUnitAI::getThreateningUnit(const CvPlot* pPlot, CvUnit*& pThreateningUnit
 bool CvUnitAI::exposedToDanger(const CvPlot* pPlot, int acceptableOdds, bool bConsiderOnlyWorstThreat) const
 {
 	PROFILE_EXTRA_FUNC();
+	SUB_TIMER_EXPOSEDDANGER(getOwner());
 	if (GET_PLAYER(getOwner()).AI_getPlotDanger(pPlot, 1, false))
 	{
 		//	What would the odds be?
@@ -18553,6 +18571,7 @@ bool CvUnitAI::AI_cityAttack(int iRange, int iOddsThreshold, bool bFollow)
 bool CvUnitAI::AI_anyAttack(int iRange, int iOddsThreshold, int iMinStack, bool bAllowCities, bool bFollow)
 {
 	PROFILE_FUNC();
+	SUB_TIMER_ANYATTACK(getOwner());
 	FAssert(canMove());
 
 	if (AI_ambush(iOddsThreshold))
@@ -31237,3 +31256,11 @@ int CvUnitAI::getMyAggression(int iAttackProb) const
 
 	return false;
 }*/
+
+#ifdef C2C_PATH_CALLER_TAGS_ACTIVE
+#undef PROFILE_FUNC
+#undef PROFILE_EXTRA_FUNC
+#define PROFILE_FUNC()
+#define PROFILE_EXTRA_FUNC()
+#undef C2C_PATH_CALLER_TAGS_ACTIVE
+#endif

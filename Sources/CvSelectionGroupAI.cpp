@@ -13,6 +13,7 @@
 #include "CvTeamAI.h"
 #include "CvUnit.h"
 #include "CvImprovementInfo.h"
+#include "SubTimerTag.h"
 
 // Public Functions...
 
@@ -109,6 +110,8 @@ bool CvSelectionGroupAI::AI_update()
 	{
 		return false;
 	}
+
+	SimpleTimerScope groupUpdateTimer((int)getOwner(), addPlayerGroupUpdateMs);
 
 	if (!isHuman() && !getHeadUnit()->isCargo() && getActivityType() == ACTIVITY_SLEEP)
 	{
@@ -320,6 +323,7 @@ int CvSelectionGroupAI::AI_attackOdds(const CvPlot* pPlot, bool bPotentialEnemy,
 	bool bIsWin = false;
 
 	PROFILE_FUNC();
+	SUB_TIMER_ATTACKODDS(getOwner());
 
 	if ( g_attackOddsCacheGroup != this )
 	{
