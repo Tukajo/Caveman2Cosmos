@@ -49,6 +49,21 @@
 static LARGE_INTEGER s_playerTurnStart[MAX_PLAYERS];
 static bool s_bPlayerTurnTimingActive[MAX_PLAYERS] = { false };
 static double s_playerSetActiveMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerWaitUiMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerDoTurnMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerDoTurnPreMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerDoTurnCitiesMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerDoTurnTradeMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerDoTurnPostMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerDoTurnUnitsMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityInitMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityAiDoMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityChkProdMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityPlotGrpMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityAutobuildMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityDoProdMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityPostMs[MAX_PLAYERS] = { 0.0 };
+static double s_playerCityPyEventMs[MAX_PLAYERS] = { 0.0 };
 static double s_playerDangerMs[MAX_PLAYERS] = { 0.0 };
 static double s_playerMovesMs[MAX_PLAYERS] = { 0.0 };
 static double s_playerSetInactiveMs[MAX_PLAYERS] = { 0.0 };
@@ -58,6 +73,10 @@ static double s_playerGroupUpdateMs[MAX_PLAYERS] = { 0.0 };
 static int s_playerGroupUpdateCount[MAX_PLAYERS] = { 0 };
 static double s_playerUnitMoveMs[MAX_PLAYERS] = { 0.0 };
 static int s_playerUnitMoveCount[MAX_PLAYERS] = { 0 };
+static double s_playerUnitAIMoveByTypeMs[MAX_PLAYERS][NUM_UNITAI_TYPES] = { {0.0} };
+static int s_playerUnitAIMoveByTypeCount[MAX_PLAYERS][NUM_UNITAI_TYPES] = { {0} };
+static double s_playerWorkerSectionMs[MAX_PLAYERS][NUM_WSEC_TYPES] = { {0.0} };
+static int s_playerWorkerSectionCount[MAX_PLAYERS][NUM_WSEC_TYPES] = { {0} };
 static double s_playerSortMs[MAX_PLAYERS] = { 0.0 };
 static double s_playerPathMs[MAX_PLAYERS] = { 0.0 };
 static int s_playerPathCount[MAX_PLAYERS] = { 0 };
@@ -242,9 +261,112 @@ void addPlayerUnitMoveMs(int iPlayer, double dMs)
 	}
 }
 
+void addPlayerUnitAIMoveByTypeMs(int iPlayer, int iUnitAIType, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS && iUnitAIType >= 0 && iUnitAIType < NUM_UNITAI_TYPES)
+	{
+		s_playerUnitAIMoveByTypeMs[iPlayer][iUnitAIType] += dMs;
+		s_playerUnitAIMoveByTypeCount[iPlayer][iUnitAIType]++;
+	}
+}
+
+void addPlayerWorkerSectionMs(int iPlayer, int iSection, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS && iSection >= 0 && iSection < NUM_WSEC_TYPES)
+	{
+		s_playerWorkerSectionMs[iPlayer][iSection] += dMs;
+		s_playerWorkerSectionCount[iPlayer][iSection]++;
+	}
+}
+
+void logPlayerTurnTimingExtra(const char* szTag, const char* szDetail)
+{
+	FILE* f = fopen(s_szPlayerTurnTimingLogFile, "a");
+	if (f)
+	{
+		fprintf(f, "%s %s\n", szTag, szDetail);
+		fclose(f);
+	}
+}
+
 static void addPlayerSetActiveMs(int iPlayer, double dMs)
 {
 	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerSetActiveMs[iPlayer] += dMs;
+}
+
+static void addPlayerWaitUiMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerWaitUiMs[iPlayer] += dMs;
+}
+
+static void addPlayerDoTurnMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerDoTurnMs[iPlayer] += dMs;
+}
+
+void addPlayerCityInitMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityInitMs[iPlayer] += dMs;
+}
+
+void addPlayerCityAiDoMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityAiDoMs[iPlayer] += dMs;
+}
+
+void addPlayerCityChkProdMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityChkProdMs[iPlayer] += dMs;
+}
+
+void addPlayerCityPlotGrpMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityPlotGrpMs[iPlayer] += dMs;
+}
+
+void addPlayerCityAutobuildMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityAutobuildMs[iPlayer] += dMs;
+}
+
+void addPlayerCityDoProdMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityDoProdMs[iPlayer] += dMs;
+}
+
+void addPlayerCityPostMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityPostMs[iPlayer] += dMs;
+}
+
+void addPlayerCityPyEventMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerCityPyEventMs[iPlayer] += dMs;
+}
+
+static void addPlayerDoTurnPreMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerDoTurnPreMs[iPlayer] += dMs;
+}
+
+static void addPlayerDoTurnCitiesMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerDoTurnCitiesMs[iPlayer] += dMs;
+}
+
+static void addPlayerDoTurnTradeMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerDoTurnTradeMs[iPlayer] += dMs;
+}
+
+static void addPlayerDoTurnPostMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerDoTurnPostMs[iPlayer] += dMs;
+}
+
+static void addPlayerDoTurnUnitsMs(int iPlayer, double dMs)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS) s_playerDoTurnUnitsMs[iPlayer] += dMs;
 }
 
 static void addPlayerSetInactiveMs(int iPlayer, double dMs)
@@ -312,6 +434,21 @@ static void startPlayerTurnTiming(int iPlayer)
 	QueryPerformanceCounter(&s_playerTurnStart[iPlayer]);
 	s_bPlayerTurnTimingActive[iPlayer] = true;
 	s_playerSetActiveMs[iPlayer] = 0.0;
+	s_playerWaitUiMs[iPlayer] = 0.0;
+	s_playerDoTurnMs[iPlayer] = 0.0;
+	s_playerDoTurnPreMs[iPlayer] = 0.0;
+	s_playerDoTurnCitiesMs[iPlayer] = 0.0;
+	s_playerDoTurnTradeMs[iPlayer] = 0.0;
+	s_playerDoTurnPostMs[iPlayer] = 0.0;
+	s_playerDoTurnUnitsMs[iPlayer] = 0.0;
+	s_playerCityInitMs[iPlayer] = 0.0;
+	s_playerCityAiDoMs[iPlayer] = 0.0;
+	s_playerCityChkProdMs[iPlayer] = 0.0;
+	s_playerCityPlotGrpMs[iPlayer] = 0.0;
+	s_playerCityAutobuildMs[iPlayer] = 0.0;
+	s_playerCityDoProdMs[iPlayer] = 0.0;
+	s_playerCityPostMs[iPlayer] = 0.0;
+	s_playerCityPyEventMs[iPlayer] = 0.0;
 	s_playerDangerMs[iPlayer] = 0.0;
 	s_playerMovesMs[iPlayer] = 0.0;
 	s_playerSetInactiveMs[iPlayer] = 0.0;
@@ -321,6 +458,10 @@ static void startPlayerTurnTiming(int iPlayer)
 	s_playerGroupUpdateCount[iPlayer] = 0;
 	s_playerUnitMoveMs[iPlayer] = 0.0;
 	s_playerUnitMoveCount[iPlayer] = 0;
+	memset(s_playerUnitAIMoveByTypeMs[iPlayer], 0, sizeof(s_playerUnitAIMoveByTypeMs[iPlayer]));
+	memset(s_playerUnitAIMoveByTypeCount[iPlayer], 0, sizeof(s_playerUnitAIMoveByTypeCount[iPlayer]));
+	memset(s_playerWorkerSectionMs[iPlayer], 0, sizeof(s_playerWorkerSectionMs[iPlayer]));
+	memset(s_playerWorkerSectionCount[iPlayer], 0, sizeof(s_playerWorkerSectionCount[iPlayer]));
 	s_playerSortMs[iPlayer] = 0.0;
 	s_playerPathMs[iPlayer] = 0.0;
 	s_playerPathCount[iPlayer] = 0;
@@ -356,8 +497,129 @@ static void stopPlayerTurnTiming(int iPlayer, int iTurn, bool bHuman, bool bNPC,
 	FILE* f = fopen(s_szPlayerTurnTimingLogFile, "a");
 	if (f)
 	{
-		fprintf(f, "TURN %d PLAYER %d DURATION_MS=%d SETACTIVE_MS=%d DANGER_MS=%d MOVES_MS=%d AUTO_MS=%d UNITUPDATE_MS=%d GROUPUPDATE_MS=%d GROUPUPDATE_COUNT=%d UNITMOVES_MS=%d UNITMOVES_COUNT=%d SORT_MS=%d PATH_MS=%d PATH_COUNT=%d DANGERQUERY_MS=%d DANGERQUERY_COUNT=%d DANGERINPATH_MS=%d DANGERINPATH_COUNT=%d PATROL_MS=%d PATROL_COUNT=%d ANYATTACK_MS=%d ANYATTACK_COUNT=%d EXPOSEDDANGER_MS=%d EXPOSEDDANGER_COUNT=%d ATTACKODDS_MS=%d ATTACKODDS_COUNT=%d MERGECHECK_MS=%d MERGECHECK_COUNT=%d REACHABLE_MS=%d REACHABLE_COUNT=%d SETINACTIVE_MS=%d HUMAN=%d NPC=%d ALIVE=%d\n",
-			iTurn, iPlayer, (int)(dMs + 0.5), (int)(s_playerSetActiveMs[iPlayer] + 0.5), (int)(s_playerDangerMs[iPlayer] + 0.5),
+		// Top three UnitAITypes contributors to this player's doUnitAIMove time this turn.
+		char szUnitAITop[384];
+		szUnitAITop[0] = '\0';
+		int iTopTypes[3] = { -1, -1, -1 };
+		double adTopMs[3] = { -1.0, -1.0, -1.0 };
+		for (int iType = 0; iType < NUM_UNITAI_TYPES; ++iType)
+		{
+			double dTypeMs = s_playerUnitAIMoveByTypeMs[iPlayer][iType];
+			if (dTypeMs <= 0.0)
+			{
+				continue;
+			}
+			for (int iSlot = 0; iSlot < 3; ++iSlot)
+			{
+				if (dTypeMs > adTopMs[iSlot])
+				{
+					for (int iShift = 2; iShift > iSlot; --iShift)
+					{
+						adTopMs[iShift] = adTopMs[iShift - 1];
+						iTopTypes[iShift] = iTopTypes[iShift - 1];
+					}
+					adTopMs[iSlot] = dTypeMs;
+					iTopTypes[iSlot] = iType;
+					break;
+				}
+			}
+		}
+		char* pTopOut = szUnitAITop;
+		size_t iTopRoom = sizeof(szUnitAITop);
+		for (int iSlot = 0; iSlot < 3; ++iSlot)
+		{
+			if (iTopTypes[iSlot] < 0)
+			{
+				break;
+			}
+			int iWritten = snprintf(pTopOut, iTopRoom, "%s%s:%d/%d",
+				(iSlot == 0) ? "" : "|",
+				GC.getUnitAIInfo((UnitAITypes)iTopTypes[iSlot]).getType(),
+				(int)(adTopMs[iSlot] + 0.5),
+				s_playerUnitAIMoveByTypeCount[iPlayer][iTopTypes[iSlot]]);
+			if (iWritten < 0 || (size_t)iWritten >= iTopRoom)
+			{
+				break;
+			}
+			pTopOut += iWritten;
+			iTopRoom -= (size_t)iWritten;
+		}
+		if (szUnitAITop[0] == '\0')
+		{
+			snprintf(szUnitAITop, sizeof(szUnitAITop), "-");
+		}
+		// Top six AI_workerMove decision sections by accumulated time this turn.
+		static const char* const s_szWsecNames[NUM_WSEC_TYPES] =
+		{
+			"abroad", "construct", "upgrade", "hurry", "outcome", "connect",
+			"imprBonus", "imprCity", "imprLocal", "nextCity", "route", "irrigate", "load", "tail",
+			"connBonus", "rtCity", "rtErr"
+		};
+		char szWsecTop[512];
+		szWsecTop[0] = '\0';
+		int iBestSec[8];
+		double adBestSecMs[8];
+		for (int iSlot = 0; iSlot < 8; ++iSlot)
+		{
+			iBestSec[iSlot] = -1;
+			adBestSecMs[iSlot] = -1.0;
+		}
+		for (int iSec = 0; iSec < NUM_WSEC_TYPES; ++iSec)
+		{
+			double dSecMs = s_playerWorkerSectionMs[iPlayer][iSec];
+			if (dSecMs <= 0.0)
+			{
+				continue;
+			}
+			for (int iSlot = 0; iSlot < 6; ++iSlot)
+			{
+				if (dSecMs > adBestSecMs[iSlot])
+				{
+					for (int iShift = 7; iShift > iSlot; --iShift)
+					{
+						adBestSecMs[iShift] = adBestSecMs[iShift - 1];
+						iBestSec[iShift] = iBestSec[iShift - 1];
+					}
+					adBestSecMs[iSlot] = dSecMs;
+					iBestSec[iSlot] = iSec;
+					break;
+				}
+			}
+		}
+		char* pSecOut = szWsecTop;
+		size_t iSecRoom = sizeof(szWsecTop);
+		for (int iSlot = 0; iSlot < 6; ++iSlot)
+		{
+			if (iBestSec[iSlot] < 0)
+			{
+				break;
+			}
+			int iWritten = snprintf(pSecOut, iSecRoom, "%s%s:%d/%d",
+				(iSlot == 0) ? "" : "|",
+				s_szWsecNames[iBestSec[iSlot]],
+				(int)(adBestSecMs[iSlot] + 0.5),
+				s_playerWorkerSectionCount[iPlayer][iBestSec[iSlot]]);
+			if (iWritten < 0 || (size_t)iWritten >= iSecRoom)
+			{
+				break;
+			}
+			pSecOut += iWritten;
+			iSecRoom -= (size_t)iWritten;
+		}
+		if (szWsecTop[0] == '\0')
+		{
+			snprintf(szWsecTop, sizeof(szWsecTop), "-");
+		}
+		fprintf(f, "TURN %d PLAYER %d DURATION_MS=%d SETACTIVE_MS=%d WAITUI_MS=%d DOTURN_MS=%d DOTURN_PRE_MS=%d DOTURN_CITIES_MS=%d CITY_INIT_MS=%d CITY_AIDO_MS=%d CITY_CHKPROD_MS=%d CITY_PLOTGRP_MS=%d CITY_AUTOBUILD_MS=%d CITY_DOPROD_MS=%d CITY_POST_MS=%d CITY_PYEVENT_MS=%d DOTURN_TRADE_MS=%d DOTURN_POST_MS=%d DOTURNUNITS_MS=%d DANGER_MS=%d MOVES_MS=%d AUTO_MS=%d UNITUPDATE_MS=%d GROUPUPDATE_MS=%d GROUPUPDATE_COUNT=%d UNITMOVES_MS=%d UNITMOVES_COUNT=%d SORT_MS=%d PATH_MS=%d PATH_COUNT=%d DANGERQUERY_MS=%d DANGERQUERY_COUNT=%d DANGERINPATH_MS=%d DANGERINPATH_COUNT=%d PATROL_MS=%d PATROL_COUNT=%d ANYATTACK_MS=%d ANYATTACK_COUNT=%d EXPOSEDDANGER_MS=%d EXPOSEDDANGER_COUNT=%d ATTACKODDS_MS=%d ATTACKODDS_COUNT=%d MERGECHECK_MS=%d MERGECHECK_COUNT=%d REACHABLE_MS=%d REACHABLE_COUNT=%d SETINACTIVE_MS=%d HUMAN=%d NPC=%d ALIVE=%d UNITAI_TOP_MS=%s WSECT_MS=%s\n",
+			iTurn, iPlayer, (int)(dMs + 0.5), (int)(s_playerSetActiveMs[iPlayer] + 0.5),
+			(int)(s_playerWaitUiMs[iPlayer] + 0.5), (int)(s_playerDoTurnMs[iPlayer] + 0.5),
+			(int)(s_playerDoTurnPreMs[iPlayer] + 0.5), (int)(s_playerDoTurnCitiesMs[iPlayer] + 0.5),
+			(int)(s_playerCityInitMs[iPlayer] + 0.5), (int)(s_playerCityAiDoMs[iPlayer] + 0.5),
+			(int)(s_playerCityChkProdMs[iPlayer] + 0.5), (int)(s_playerCityPlotGrpMs[iPlayer] + 0.5),
+			(int)(s_playerCityAutobuildMs[iPlayer] + 0.5), (int)(s_playerCityDoProdMs[iPlayer] + 0.5),
+			(int)(s_playerCityPostMs[iPlayer] + 0.5), (int)(s_playerCityPyEventMs[iPlayer] + 0.5),
+			(int)(s_playerDoTurnTradeMs[iPlayer] + 0.5), (int)(s_playerDoTurnPostMs[iPlayer] + 0.5),
+			(int)(s_playerDoTurnUnitsMs[iPlayer] + 0.5), (int)(s_playerDangerMs[iPlayer] + 0.5),
 			(int)(s_playerMovesMs[iPlayer] + 0.5), (int)(s_playerAutoMissionMs[iPlayer] + 0.5), (int)(s_playerUnitUpdateMs[iPlayer] + 0.5),
 			(int)(s_playerGroupUpdateMs[iPlayer] + 0.5), s_playerGroupUpdateCount[iPlayer], (int)(s_playerUnitMoveMs[iPlayer] + 0.5), s_playerUnitMoveCount[iPlayer],
 			(int)(s_playerSortMs[iPlayer] + 0.5),
@@ -370,7 +632,7 @@ static void stopPlayerTurnTiming(int iPlayer, int iTurn, bool bHuman, bool bNPC,
 			(int)(s_playerAttackOddsMs[iPlayer] + 0.5), s_playerAttackOddsCount[iPlayer],
 			(int)(s_playerMergeCheckMs[iPlayer] + 0.5), s_playerMergeCheckCount[iPlayer],
 			(int)(s_playerReachableMs[iPlayer] + 0.5), s_playerReachableCount[iPlayer],
-			(int)(s_playerSetInactiveMs[iPlayer] + 0.5), bHuman ? 1 : 0, bNPC ? 1 : 0, bAlive ? 1 : 0);
+			(int)(s_playerSetInactiveMs[iPlayer] + 0.5), bHuman ? 1 : 0, bNPC ? 1 : 0, bAlive ? 1 : 0, szUnitAITop, szWsecTop);
 		fclose(f);
 	}
 	dumpPathCallerStats(iPlayer, iTurn);
@@ -1373,6 +1635,7 @@ void CvPlayer::reset(PlayerTypes eID, bool bConstructorCall)
 	m_iHurryCount = 0;
 
 	m_eBestRoute = NO_ROUTE;
+	m_iRouteEpoch = 0;
 
 	m_iNoLandmarkAngerCount = 0;
 	m_iLandmarkHappiness = 0;
@@ -4113,6 +4376,7 @@ void CvPlayer::doTurn()
 
 	//	Reset cache of best route type to build
 	m_eBestRoute = NO_ROUTE;
+	++m_iRouteEpoch;
 
 #ifdef CAN_BUILD_VALUE_CACHING
 	CvPlot::ClearCanBuildCache();
@@ -4133,7 +4397,10 @@ void CvPlayer::doTurn()
 
 	GC.getGame().verifyDeals();
 
-	AI_doTurnPre();
+	{
+		SimpleTimerScope preTimer(getID(), addPlayerDoTurnPreMs);
+		AI_doTurnPre();
+	}
 
 	if (getRevolutionTimer() > 0)
 	{
@@ -4183,6 +4450,7 @@ void CvPlayer::doTurn()
 
 	{
 		PROFILE("CvPlayer::doTurn.DoCityTurn");
+		SimpleTimerScope citiesTimer(getID(), addPlayerDoTurnCitiesMs);
 
 		algo::for_each(cities_safe(), CvCity::fn::doTurn());
 	}
@@ -4213,7 +4481,10 @@ void CvPlayer::doTurn()
 
 	verifyCivics();
 
-	updateTradeRoutes();
+	{
+		SimpleTimerScope tradeTimer(getID(), addPlayerDoTurnTradeMs);
+		updateTradeRoutes();
+	}
 
 	updateWarWearinessPercentAnger();
 
@@ -4238,7 +4509,10 @@ void CvPlayer::doTurn()
 
 	gDLL->getInterfaceIFace()->setDirty(CityInfo_DIRTY_BIT, true);
 
-	AI_doTurnPost();
+	{
+		SimpleTimerScope postTimer(getID(), addPlayerDoTurnPostMs);
+		AI_doTurnPost();
+	}
 
 	// Toffer - Completely acceptable to only cache these once per turn.
 	if (!isNPC())
@@ -12805,6 +13079,7 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 			}
 			else if (!GET_PLAYER(GC.getGame().getActivePlayer()).isTurnActive())
 			{
+				SimpleTimerScope waitUiTimer(getID(), addPlayerWaitUiMs);
 				Cy::call(PYScreensModule, "updateWaitingForPlayer", Cy::Args() << getID());
 			}
 
@@ -12824,8 +13099,14 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn)
 				{
 					// Koshling - Moved AI turn processing to the START of the turn
 					//	(i.e. before unit movement) so as to allow units to answer city requests.
-					doTurn();
-					doTurnUnits(); // AI create colony (splitEmpire) evaluation at the end of doTurnUnits().
+					{
+						SimpleTimerScope doTurnTimer(getID(), addPlayerDoTurnMs);
+						doTurn();
+					}
+					{
+						SimpleTimerScope doTurnUnitsTimer(getID(), addPlayerDoTurnUnitsMs);
+						doTurnUnits(); // AI create colony (splitEmpire) evaluation at the end of doTurnUnits().
+					}
 				}
 
 				if (getID() == GC.getGame().getActivePlayer() && GC.getGame().getElapsedGameTurns() > 0)
@@ -29943,6 +30224,7 @@ void CvPlayer::processNewRoutes()
 	PROFILE_EXTRA_FUNC();
 	//	Invalidate best route cache
 	m_eBestRoute = NO_ROUTE;
+	++m_iRouteEpoch;
 
 	//	Process auto-upgrade of city tile routes
 	foreach_(const CvCity* pLoopCity, cities())

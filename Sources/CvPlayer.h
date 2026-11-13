@@ -327,6 +327,8 @@ public:
 	bool canBuild(const CvPlot* pPlot, BuildTypes eBuild, bool bTestVisible = false, bool bIncludePythonOverrides = true) const;
 
 	RouteTypes getBestRoute(const CvPlot* pPlot = NULL, bool bConnect = true, const CvUnit* pBuilder = NULL) const;
+	// Bumped whenever m_eBestRoute cache is invalidated; stamps RouteFinder flood caches (see CvCityAI::AI_updateRouteToCity).
+	int getRouteEpoch() const { return m_iRouteEpoch; }
 
 	int getImprovementUpgradeProgressRate(const ImprovementTypes eImprovement) const;
 
@@ -2390,6 +2392,7 @@ private:
 	mutable bool* m_bCanConstructCachedDefaultParam;
 	mutable RouteTypes m_eBestRoute;
 	mutable BuildTypes m_eBestRouteBuild;
+	mutable int m_iRouteEpoch;
 	mutable std::map<int, bool>	m_canHaveBuilder;
 
 	CvContractBroker m_contractBroker;

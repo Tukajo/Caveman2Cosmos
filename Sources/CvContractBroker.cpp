@@ -15,6 +15,7 @@
 #include "CvPlot.h"
 #include "CvSelectionGroup.h"
 #include "CvUnit.h"
+#include "PathCallerTag.h"
 
 CvContractBroker::CvContractBroker() : m_eOwner(NO_PLAYER)
 {
@@ -814,6 +815,7 @@ workRequest* CvContractBroker::findWorkRequestByUnitId(int unitId)
 advertisingUnit* CvContractBroker::findBestUnit(const workRequest& request, bool bThisPlotOnly)
 {
 	PROFILE_FUNC();
+	PATH_CALLER_TAG();
 
 	int	iBestValue = -1;
 	int iBestUnitIndex = -1;

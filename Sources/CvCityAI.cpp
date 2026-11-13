@@ -4569,28 +4569,30 @@ bool CvCityAI::AI_scoreBuildingsFromListThreshold(std::vector<ScoredBuilding>& s
 					queries.push_back(query);
 				}
 
-				// TODO OPT: convert the masks to vectors so this look is faster
-				for (int iI = 0; iI < GC.getNumBuildingInfos(); iI++)
+				// Iterate only through the precalculated list of buildings enabled/unlocked by this building
+				foreach_(const BuildingTypes eType, buildingInfo.getEnabledBuildingsList())
 				{
-					if (hasBuilding((BuildingTypes)iI)) continue;
+					if (hasBuilding(eType)) continue;
 
 					// check if this building enables the construct condition of another building
-					bool bEnablesCondition = false;
-					const BoolExpr* condition = GC.getBuildingInfo((BuildingTypes)iI).getConstructCondition();
-					if (condition && condition->evaluateChange(pObject, queries) == BOOLEXPR_CHANGE_BECOMES_TRUE)
+					bool bEnablesCondition = GC.getBuildingInfo(eType).isPrereqInCityBuilding(eBuilding) || GC.getBuildingInfo(eType).isPrereqOrBuilding(eBuilding);
+					if (!bEnablesCondition)
 					{
-						bEnablesCondition = true;
+						const BoolExpr* condition = GC.getBuildingInfo(eType).getConstructCondition();
+						if (condition && condition->evaluateChange(pObject, queries) == BOOLEXPR_CHANGE_BECOMES_TRUE)
+						{
+							bEnablesCondition = true;
+						}
 					}
 
-					if ((bEnablesCondition || GC.getBuildingInfo((BuildingTypes)iI).isPrereqInCityBuilding(eBuilding) || GC.getBuildingInfo((BuildingTypes)iI).isPrereqOrBuilding(eBuilding))
-					&& canConstructInternal((BuildingTypes)iI, false, false, false, true, eBuilding))
+					if (bEnablesCondition && canConstructInternal(eType, false, false, false, true, eBuilding))
 					{
 						PROFILE("AI_bestBuildingThreshold.Enablement");
 
 						// We only value the unlocked building at 1/2 rate
-						iValue += AI_buildingValueThreshold((BuildingTypes)iI, iFocusFlags, 0, false, true) / 2;
+						iValue += AI_buildingValueThreshold(eType, iFocusFlags, 0, false, true) / 2;
 
-						LOG_EVALAI_CITY(3, (3, "    enables %S - increase value to %I64d", GC.getBuildingInfo((BuildingTypes)iI).getDescription(), iValue));
+						LOG_EVALAI_CITY(3, (3, "    enables %S - increase value to %I64d", GC.getBuildingInfo(eType).getDescription(), iValue));
 					}
 				}
 			}
@@ -7395,6 +7397,163 @@ CvCity* CvCityAI::AI_getRouteToCity() const
 }
 
 
+// ---------------------------------------------------------------------------
+// RouteFinder reachability flood cache (perf: AI_updateRouteToCity pairwise
+// GeneratePath loop was the top non-path worker hotspot, ~4.5 s/turn single
+// call on the pinned benchmark save, WSECT_MS=rtCity).
+//
+// The RouteFinder's routeValid callback (CvGameCoreUtils.cpp) validates every
+// ENTERED plot with a per-plot predicate -- (unowned OR plot team == finder
+// player's team) AND plot->getRouteType() == GET_PLAYER(ePlayer).getBestRoute(plot)
+// -- and always allows the start plot. A per-plot predicate over a fixed
+// 8-neighbor grid makes GeneratePath success an equivalence query on connected
+// components, so one flood per (player, route-epoch) answers every city pair
+// in O(1). Equivalence + tie-break identity proven by Test/CvRouteConnectivity.
+//
+// The epoch is CvPlayer::m_iRouteEpoch, bumped exactly where m_eBestRoute is
+// invalidated (per-turn doTurn reset, new route tech). Mid-turn route BUILDS do
+// not bump it: a worker later in the same turn sees routes built earlier this
+// turn one turn stale. That only softens AI target choice (never rules or RNG);
+// replays/MP stay deterministic because the flood itself is deterministic.
+// ---------------------------------------------------------------------------
+namespace
+{
+	struct RouteFinderFlood
+	{
+		std::vector<int> comp;      // plotIndex -> component id ( >0 ), -1 = predicate false, 0 = unvisited
+		PlayerTypes ePlayer;
+		int iEpoch;
+		int iNumPlots;
+		int iGridW;
+		int iGridH;
+		bool bWrapX;
+		bool bWrapY;
+
+		RouteFinderFlood() : ePlayer(NO_PLAYER), iEpoch(-1), iNumPlots(-1), iGridW(0), iGridH(0), bWrapX(false), bWrapY(false) {}
+
+		static const int* dx() { static const int a[8] = { -1, 0, 1, 0, -1, 1, -1, 1 }; return a; }
+		static const int* dy() { static const int a[8] = { 0, -1, 0, 1, -1, 1, -1, 1 }; return a; }
+
+		static bool plotValid(const CvPlot* pPlot, PlayerTypes ePlayer)
+		{
+			return (!pPlot->isOwned() || pPlot->getTeam() == GET_PLAYER(ePlayer).getTeam())
+				&& pPlot->getRouteType() == GET_PLAYER(ePlayer).getBestRoute(pPlot);
+		}
+
+		void ensure(PlayerTypes eP)
+		{
+			const CvMap& map = GC.getMap();
+			const int iNewNumPlots = map.numPlots();
+			const int iNewEpoch = GET_PLAYER(eP).getRouteEpoch();
+			if (ePlayer == eP && iNewEpoch == iEpoch && iNewNumPlots == iNumPlots)
+			{
+				return;
+			}
+			ePlayer = eP;
+			iEpoch = iNewEpoch;
+			iNumPlots = iNewNumPlots;
+			iGridW = map.getGridWidth();
+			iGridH = map.getGridHeight();
+			bWrapX = map.isWrapX();
+			bWrapY = map.isWrapY();
+
+			comp.assign(iNumPlots, 0);
+			int iNextComp = 0;
+			std::vector<int> stack;
+			const int* const adx = dx();
+			const int* const ady = dy();
+			for (int iSeed = 0; iSeed < iNumPlots; ++iSeed)
+			{
+				if (comp[iSeed] != 0)
+				{
+					continue;
+				}
+				if (!plotValid(map.plotByIndex(iSeed), eP))
+				{
+					comp[iSeed] = -1;
+					continue;
+				}
+				++iNextComp;
+				comp[iSeed] = iNextComp;
+				stack.push_back(iSeed);
+				while (!stack.empty())
+				{
+					const int iCur = stack.back();
+					stack.pop_back();
+					const int iCX = iCur % iGridW;
+					const int iCY = iCur / iGridW;
+					for (int k = 0; k < 8; ++k)
+					{
+						int iNX = iCX + adx[k];
+						int iNY = iCY + ady[k];
+						if (iNX < 0)        { if (!bWrapX) continue; iNX += iGridW; }
+						else if (iNX >= iGridW) { if (!bWrapX) continue; iNX -= iGridW; }
+						if (iNY < 0)       { if (!bWrapY) continue; iNY += iGridH; }
+						else if (iNY >= iGridH) { if (!bWrapY) continue; iNY -= iGridH; }
+						const int iN = iNY * iGridW + iNX;
+						const int c = comp[iN];
+						if (c != 0)
+						{
+							continue; // assigned to a component, or known predicate-false
+						}
+						if (!plotValid(map.plotByIndex(iN), eP))
+						{
+							comp[iN] = -1;
+							continue;
+						}
+						comp[iN] = iNextComp;
+						stack.push_back(iN);
+					}
+				}
+			}
+		}
+
+		// Mirrors GeneratePath(startPlot -> endPlot): start plot always enterable,
+		// entered plots must satisfy the predicate (which flood marks comp > 0).
+		bool hasPath(const CvPlot* pFrom, const CvPlot* pTo) const
+		{
+			if (pFrom == pTo)
+			{
+				return true;
+			}
+			const int iToIdx = pTo->getY() * iGridW + pTo->getX();
+			const int iToComp = comp[iToIdx];
+			if (iToComp <= 0)
+			{
+				return false;
+			}
+			const int iFromIdx = pFrom->getY() * iGridW + pFrom->getX();
+			const int iFromComp = comp[iFromIdx];
+			if (iFromComp > 0)
+			{
+				return iFromComp == iToComp;
+			}
+			// Predicate-false start plot is still a legal origin: reachable when
+			// the target component touches one of the start's 8 neighbors.
+			const int* const adx = dx();
+			const int* const ady = dy();
+			const int iFX = pFrom->getX();
+			const int iFY = pFrom->getY();
+			for (int k = 0; k < 8; ++k)
+			{
+				int iNX = iFX + adx[k];
+				int iNY = iFY + ady[k];
+				if (iNX < 0)        { if (!bWrapX) continue; iNX += iGridW; }
+				else if (iNX >= iGridW) { if (!bWrapX) continue; iNX -= iGridW; }
+				if (iNY < 0)       { if (!bWrapY) continue; iNY += iGridH; }
+				else if (iNY >= iGridH) { if (!bWrapY) continue; iNY -= iGridH; }
+				if (comp[iNY * iGridW + iNX] == iToComp)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+	};
+
+	RouteFinderFlood g_routeFlood;
+}
+
 void CvCityAI::AI_updateRouteToCity() const
 {
 	PROFILE_FUNC();
@@ -7418,7 +7577,9 @@ void CvCityAI::AI_updateRouteToCity() const
 	if ((itr = allAreaCitiesConnected->find(area()->getID())) == allAreaCitiesConnected->end() ||
 		!(itr->second))
 	{
-		gDLL->getFAStarIFace()->ForceReset(&GC.getRouteFinder());
+		// Flood the RouteFinder predicate graph once for this player/epoch and
+		// answer every same-area team-city pair in O(1) (see notes above).
+		g_routeFlood.ensure(getOwner());
 
 		int iBestValue = MAX_INT;
 
@@ -7432,7 +7593,7 @@ void CvCityAI::AI_updateRouteToCity() const
 					{
 						if (pLoopCity->area() == area())
 						{
-							if (!gDLL->getFAStarIFace()->GeneratePath(&GC.getRouteFinder(), getX(), getY(), pLoopCity->getX(), pLoopCity->getY(), false, getOwner(), true))
+							if (!g_routeFlood.hasPath(plot(), pLoopCity->plot()))
 							{
 								const int iValue = plotDistance(getX(), getY(), pLoopCity->getX(), pLoopCity->getY());
 

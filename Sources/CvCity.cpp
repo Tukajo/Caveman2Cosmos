@@ -28,6 +28,7 @@
 #include "CvViewport.h"
 #include "CvDLLInterfaceIFaceBase.h"
 #include "CvDLLUtilityIFaceBase.h"
+#include "SubTimerTag.h"
 #include "CvTraitInfo.h"
 #ifdef THE_GREAT_WALL
 #include "CvDLLEngineIFaceBase.h"
@@ -1290,41 +1291,51 @@ void CvCity::doTurn()
 	//	Slight hack for now - will need to change as and when we go multi-threaded
 	CvPlot::setDeferredPlotGroupRecalculationMode(true);
 
-	if (!isBombarded())
 	{
-		changeDefenseDamage(-cityDefenseRecoveryRate());
+		SimpleTimerScope timer(getOwner(), addPlayerCityInitMs);
+		if (!isBombarded())
+		{
+			changeDefenseDamage(-cityDefenseRecoveryRate());
+		}
+
+		setLastDefenseDamage(getDefenseDamage());
+		setBombarded(false);
+		setPlundered(false);
+		setDrafted(false);
+		setAirliftTargeted(false);
+		setBuiltFoodProducedUnit(false);
+		//Promotes Units if there is a building that allows it
+		doPromotion();
+		//Does vicinity bonus checks
+		doVicinityBonus();
+		//Checks conditions of buildings, may disable or enable some
+		checkBuildings();
+		checkFreeBuildings();
+
+		//Damages enemy units around the city, if applicable
+		doAttack();
+		//Heals friendly units in the city extra, if applicable
+		doHeal();
+		//Spreads corporations
+		doCorporation();
+		//Counts down the disable power timer
+		doDisabledPower();
+
+		recalculatePopulationgrowthratepercentage();
+
+		doWarWeariness();
 	}
 
-	setLastDefenseDamage(getDefenseDamage());
-	setBombarded(false);
-	setPlundered(false);
-	setDrafted(false);
-	setAirliftTargeted(false);
-	setBuiltFoodProducedUnit(false);
-	//Promotes Units if there is a building that allows it
-	doPromotion();
-	//Does vicinity bonus checks
-	doVicinityBonus();
-	//Checks conditions of buildings, may disable or enable some
-	checkBuildings();
-	checkFreeBuildings();
+	{
+		SimpleTimerScope timer(getOwner(), addPlayerCityAiDoMs);
+		AI_doTurn();
+	}
 
-	//Damages enemy units around the city, if applicable
-	doAttack();
-	//Heals friendly units in the city extra, if applicable
-	doHeal();
-	//Spreads corporations
-	doCorporation();
-	//Counts down the disable power timer
-	doDisabledPower();
-
-	recalculatePopulationgrowthratepercentage();
-
-	doWarWeariness();
-
-	AI_doTurn();
-
-	bool bAllowNoProduction = !doCheckProduction();
+	bool bAllowNoProduction;
+	{
+		SimpleTimerScope timer(getOwner(), addPlayerCityChkProdMs);
+		bAllowNoProduction = !doCheckProduction();
+	}
 
 	changeFood(foodDifference(), true);
 
@@ -1335,16 +1346,27 @@ void CvCity::doTurn()
 	doPlotCulture(getOwner(), getCommerceRate(COMMERCE_CULTURE));
 
 	//	Force deferred plot group recalculation to happen now before we assess production
-	CvPlot::setDeferredPlotGroupRecalculationMode(false);
+	{
+		SimpleTimerScope timer(getOwner(), addPlayerCityPlotGrpMs);
+		CvPlot::setDeferredPlotGroupRecalculationMode(false);
+	}
 
 	//	Auto-build any auto-build buildings we can
-	doAutobuild();
+	{
+		SimpleTimerScope timer(getOwner(), addPlayerCityAutobuildMs);
+		doAutobuild();
+	}
 
-	doProduction(bAllowNoProduction);
+	{
+		SimpleTimerScope timer(getOwner(), addPlayerCityDoProdMs);
+		doProduction(bAllowNoProduction);
+	}
 
 	GET_PLAYER(getOwner()).getContractBroker().advertiseTender(this, AI_getBuildPriority());
 
-	doDecay();
+	{
+		SimpleTimerScope timer(getOwner(), addPlayerCityPostMs);
+		doDecay();
 
 	doReligion();
 
@@ -1472,6 +1494,7 @@ void CvCity::doTurn()
 		m_pabHadVicinityBonus[iI] = hasVicinityBonus((BonusTypes)iI);
 		m_pabHadRawVicinityBonus[iI] = hasRawVicinityBonus((BonusTypes)iI);
 	}
+	}
 
 #ifdef CAN_TRAIN_CACHING
 	//	Outside the scope of the city's turn where we expect to be using cached values turn
@@ -1480,7 +1503,10 @@ void CvCity::doTurn()
 #endif
 
 	// ONEVENT - Do turn
-	CvEventReporter::getInstance().cityDoTurn(this, getOwner());
+	{
+		SimpleTimerScope timer(getOwner(), addPlayerCityPyEventMs);
+		CvEventReporter::getInstance().cityDoTurn(this, getOwner());
+	}
 }
 
 void CvCity::doAutobuild()

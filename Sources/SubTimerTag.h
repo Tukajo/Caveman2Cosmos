@@ -39,6 +39,42 @@ void addPlayerPathMs(int iPlayer, double dMs);
 void addPlayerDangerQueryMs(int iPlayer, double dMs, bool bInsidePath);
 void addPlayerUnitMoveMs(int iPlayer, double dMs);
 void addPlayerGroupUpdateMs(int iPlayer, double dMs);
+void addPlayerCityInitMs(int iPlayer, double dMs);
+void addPlayerCityAiDoMs(int iPlayer, double dMs);
+void addPlayerCityChkProdMs(int iPlayer, double dMs);
+void addPlayerCityPlotGrpMs(int iPlayer, double dMs);
+void addPlayerCityAutobuildMs(int iPlayer, double dMs);
+void addPlayerCityDoProdMs(int iPlayer, double dMs);
+void addPlayerCityPostMs(int iPlayer, double dMs);
+void addPlayerCityPyEventMs(int iPlayer, double dMs);
+void addPlayerUnitAIMoveByTypeMs(int iPlayer, int iUnitAIType, double dMs);
+
+// Sections of CvUnitAI::AI_workerMove(), attributed per player-turn (WSECT_MS log field).
+enum WorkerAISectionTypes
+{
+	WSEC_ABROAD = 0,      // abroad/defender/danger-retreat prologue
+	WSEC_CONSTRUCT,       // AI_heritage / AI_construct
+	WSEC_UPGRADE,         // AI_upgradeWorker
+	WSEC_HURRY,           // AI_hurry
+	WSEC_OUTCOME,         // AI_outcomeMission
+	WSEC_CONNECT,         // AI_connectPlot bonus-trade
+	WSEC_IMPROVEBONUS,    // CvWorkerService::ImproveBonus (2- and 4-move passes)
+	WSEC_IMPROVECITY,     // ShouldImproveCity / AI_improveCity local-city block
+	WSEC_LOCALPLOT,       // AI_improveLocalPlot (2- and 3-move passes)
+	WSEC_NEXTCITY,        // next-city-to-improve decision block
+	WSEC_ROUTE,           // AI_routeTerritory(true) (first call)
+	WSEC_IRRIGATE,        // AI_irrigateTerritory
+	WSEC_LOAD,            // airlift/settler-boat loading tail
+	WSEC_TAIL,            // scrap checks, retreats, stranded load, AI_safety tail
+	WSEC_CONNBONUS,       // AI_connectBonus(false)
+	WSEC_RTCITY,          // AI_routeCity()
+	WSEC_RTERR,           // AI_routeTerritory() (second call)
+	NUM_WSEC_TYPES
+};
+void addPlayerWorkerSectionMs(int iPlayer, int iSection, double dMs);
+
+// Writes one ad-hoc tagged line (e.g. SLOW_MOVE diagnostics) to PlayerTurnTiming.log.
+void logPlayerTurnTimingExtra(const char* szTag, const char* szDetail);
 
 extern int g_iPatrolDepth;
 extern int g_iAnyAttackDepth;
@@ -81,6 +117,76 @@ private:
 	const AddFunc m_pAddFunc;
 	LARGE_INTEGER m_tStart;
 	bool m_bActive;
+};
+
+// Credits CvUnitAI::doUnitAIMove() wall time to the head unit's UnitAITypes entry
+// (diagnosing non-path hotspots inside the UNITMOVES_MS bucket).
+struct UnitAIMoveTypeTimer
+{
+	UnitAIMoveTypeTimer(int iPlayer, int iUnitAIType)
+		: m_iPlayer(iPlayer), m_iUnitAIType(iUnitAIType), m_bActive(false)
+	{
+		if (m_iPlayer >= 0 && m_iPlayer < MAX_PLAYERS)
+		{
+			QueryPerformanceCounter(&m_tStart);
+			m_bActive = true;
+		}
+	}
+
+	~UnitAIMoveTypeTimer()
+	{
+		if (m_bActive)
+		{
+			LARGE_INTEGER freq, tEnd;
+			QueryPerformanceFrequency(&freq);
+			QueryPerformanceCounter(&tEnd);
+			addPlayerUnitAIMoveByTypeMs(m_iPlayer, m_iUnitAIType,
+				(double)(tEnd.QuadPart - m_tStart.QuadPart) * 1000.0 / (double)freq.QuadPart);
+		}
+	}
+
+private:
+	const int m_iPlayer;
+	const int m_iUnitAIType;
+	LARGE_INTEGER m_tStart;
+	bool m_bActive;
+};
+
+// Moving cursor through the sequential decision sections of CvUnitAI::AI_workerMove():
+// each mark() credits the interval just elapsed to the section it started after; the
+// destructor credits the final interval on any early return.
+struct WorkerSectionCursor
+{
+	WorkerSectionCursor(int iPlayer, int iFirstSection)
+		: m_iPlayer(iPlayer), m_iCurSection(iFirstSection)
+	{
+		QueryPerformanceFrequency(&m_qpf);
+		QueryPerformanceCounter(&m_tMark);
+	}
+
+	void mark(int iNextSection)
+	{
+		LARGE_INTEGER tNow;
+		QueryPerformanceCounter(&tNow);
+		addPlayerWorkerSectionMs(m_iPlayer, m_iCurSection,
+			(double)(tNow.QuadPart - m_tMark.QuadPart) * 1000.0 / (double)m_qpf.QuadPart);
+		m_tMark = tNow;
+		m_iCurSection = iNextSection;
+	}
+
+	~WorkerSectionCursor()
+	{
+		LARGE_INTEGER tNow;
+		QueryPerformanceCounter(&tNow);
+		addPlayerWorkerSectionMs(m_iPlayer, m_iCurSection,
+			(double)(tNow.QuadPart - m_tMark.QuadPart) * 1000.0 / (double)m_qpf.QuadPart);
+	}
+
+private:
+	const int m_iPlayer;
+	int m_iCurSection;
+	LARGE_INTEGER m_qpf;
+	LARGE_INTEGER m_tMark;
 };
 
 // Recursion-safe RAII timer scope (measures outermost invocation only).

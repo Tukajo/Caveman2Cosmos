@@ -28,6 +28,7 @@
 #include "CvDLLEngineIFaceBase.h"
 #include "CvDLLInterfaceIFaceBase.h"
 #include "CvDLLEntity.h"
+#include "PathCallerTag.h"
 #include "CvDLLEntityIFaceBase.h"
 #include "CvDLLFAStarIFaceBase.h"
 #include "CvDLLUtilityIFaceBase.h"
@@ -12011,6 +12012,7 @@ CvCity* CvUnit::getUpgradeCity(bool bSearch) const
 CvCity* CvUnit::getUpgradeCity(UnitTypes eUnit, bool bSearch, int* iSearchValue) const
 {
 	PROFILE_FUNC();
+	PATH_CALLER_TAG();
 
 	if (eUnit == NO_UNIT || !upgradeAvailable(m_eUnitType, eUnit) || !GET_PLAYER(getOwner()).canTrain(eUnit, false, false, true, false, m_eUnitType))
 	{
@@ -29813,6 +29815,7 @@ bool CvUnit::canShadow() const
 
 bool CvUnit::canShadowAt(const CvPlot* pShadowPlot, CvUnit* pShadowUnit) const
 {
+	PATH_CALLER_TAG();
 	if (!canShadow() || !pShadowPlot)
 	{
 		return false;

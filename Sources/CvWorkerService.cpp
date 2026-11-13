@@ -9,6 +9,7 @@
 #include "CvReachablePlotSet.h"
 #include "CvImprovementInfo.h"
 #include "CvGameAI.h"
+#include "PathCallerTag.h"
 
 bool CvWorkerService::ShouldImproveCity(CvCity* targetCity)
 {
@@ -36,6 +37,7 @@ bool CvWorkerService::ShouldImproveCity(CvCity* targetCity)
 bool CvWorkerService::ImproveBonus(CvUnitAI* unit, int allowedMovementTurns)
 {
 	PROFILE_EXTRA_FUNC();
+	PATH_CALLER_TAG();
 	const CvPlot* unitPlot = unit->plot();
 	const PlayerTypes unitOwner = unit->getOwner();
 	const CvPlayerAI& ownerReference = GET_PLAYER(unitOwner);

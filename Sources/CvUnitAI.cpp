@@ -566,6 +566,8 @@ void CvUnitAI::doUnitAIMove()
 		logBBAI("Player %d Unit ID %d, %S of Type %S, at (%d, %d), Mission %S [stack size %d], will perform its move. moves left : %d ...", getOwner(), m_iID, StrUnitName.GetCString(), StrunitAIType.GetCString(), getX(), getY(), MissionInfos.GetCString(), getGroup()->getNumUnits(), movesLeft());
 	});
 
+	UnitAIMoveTypeTimer unitAIMoveTypeTimer((int)getOwner(), (int)AI_getUnitAIType());
+
 	//	If a unit has a contract mission for a unit that has just finished
 	//	give the unit a chance to hook up with it by force-processing contracts
 	//	before doing other AI activities
@@ -2224,6 +2226,8 @@ void CvUnitAI::AI_workerMove()
 {
 	PROFILE_FUNC();
 
+	WorkerSectionCursor wsecCursor(getOwner(), WSEC_ABROAD);
+
 	if (AI_selectStatus(true))
 	{
 		return;
@@ -2321,6 +2325,7 @@ void CvUnitAI::AI_workerMove()
 	}
 
 	// TODO: move out of workermove and into new unitai called UNITAI_MISSIONUNIT ?
+	wsecCursor.mark(WSEC_CONSTRUCT);
 	if (AI_heritage() || AI_construct(MAX_INT, MAX_INT, 0, true))
 	{
 #ifdef _DEBUG
@@ -2328,17 +2333,20 @@ void CvUnitAI::AI_workerMove()
 #endif
 		return;
 	}
+	wsecCursor.mark(WSEC_UPGRADE);
 	if (AI_upgradeWorker())
 	{
 		return;
 	}
 
+	wsecCursor.mark(WSEC_HURRY);
 	if (AI_hurry(true))
 	{
 		return;
 	}
 
 	// TODO: move out of workermove and into new unitai called UNITAI_MISSIONUNIT ?
+	wsecCursor.mark(WSEC_OUTCOME);
 	if (AI_outcomeMission())
 	{
 #ifdef _DEBUG
@@ -2352,6 +2360,7 @@ void CvUnitAI::AI_workerMove()
 		return;
 	}
 
+	wsecCursor.mark(WSEC_CONNECT);
 	bool bCanRoute = canBuildRoute();
 	// Workboats don't build Sea Tunnels over Resources
 	if (bCanRoute && !bAbroad && getDomainType() != DOMAIN_SEA)
@@ -2372,6 +2381,7 @@ void CvUnitAI::AI_workerMove()
 	BuildTypes eBestBonusBuild = NO_BUILD;
 	int iBestBonusValue = 0;
 
+	wsecCursor.mark(WSEC_IMPROVEBONUS);
 	// find bonuses within 2 moves to improve
 	if (CvWorkerService::ImproveBonus(this, 2))
 	{
@@ -2399,6 +2409,7 @@ void CvUnitAI::AI_workerMove()
 		}
 	}
 
+	wsecCursor.mark(WSEC_IMPROVECITY);
 	CvCity* pCity = NULL;
 
 	if (!bAbroad)
@@ -2424,11 +2435,13 @@ void CvUnitAI::AI_workerMove()
 		}
 	}
 
+	wsecCursor.mark(WSEC_LOCALPLOT);
 	if (AI_improveLocalPlot(2, pCity))
 	{
 		return;
 	}
 
+	wsecCursor.mark(WSEC_IMPROVEBONUS);
 	// find bonuses within 4 moves to improve
 	if (CvWorkerService::ImproveBonus(this))
 	{
@@ -2436,6 +2449,7 @@ void CvUnitAI::AI_workerMove()
 	}
 
 	{
+		wsecCursor.mark(WSEC_NEXTCITY);
 		const bool bNextCity = pCity == NULL || pCity->AI_getWorkersNeeded() == 0 || pCity->getNumWorkers() > pCity->AI_getWorkersNeeded() + 1;
 
 		if (bNextCity)
@@ -2467,6 +2481,7 @@ void CvUnitAI::AI_workerMove()
 		}
 	}
 
+	wsecCursor.mark(WSEC_ROUTE);
 	if (bCanRoute)
 	{
 		if (AI_routeTerritory(true))
@@ -2474,32 +2489,38 @@ void CvUnitAI::AI_workerMove()
 			return;
 		}
 
+		wsecCursor.mark(WSEC_CONNBONUS);
 		if (AI_connectBonus(false))
 		{
 			return;
 		}
 
+		wsecCursor.mark(WSEC_RTCITY);
 		if (AI_routeCity())
 		{
 			return;
 		}
 	}
 
+	wsecCursor.mark(WSEC_LOCALPLOT);
 	if (AI_improveLocalPlot(3, NULL))
 	{
 		return;
 	}
 
+	wsecCursor.mark(WSEC_IRRIGATE);
 	if (AI_irrigateTerritory())
 	{
 		return;
 	}
 
+	wsecCursor.mark(WSEC_RTERR);
 	if (bCanRoute && AI_routeTerritory())
 	{
 		return;
 	}
 
+	wsecCursor.mark(WSEC_LOAD);
 	if (!isHuman() || isAutomated() && !GET_TEAM(getTeam()).isAtWar())
 	{
 		if (!isHuman() || getGameTurnCreated() < GC.getGame().getGameTurn())
@@ -2541,6 +2562,7 @@ void CvUnitAI::AI_workerMove()
 		}
 	}
 
+	wsecCursor.mark(WSEC_TAIL);
 	if (!isHuman() && AI_getUnitAIType() == UNITAI_WORKER)
 	{
 		const int iWorkers = GET_PLAYER(getOwner()).AI_totalUnitAIs(UNITAI_WORKER);
@@ -15121,6 +15143,7 @@ int CvUnitAI::getBestConstructValue(int iMaxCount, int iMaxSingleBuildingCount, 
 	{
 		const BuildingTypes eBuilding = static_cast<BuildingTypes>(m_pUnitInfo->getBuildings(iI));
 		if (eBuilding != NO_BUILDING
+		&& player.getBuildingCount(eBuilding) < iMaxSingleBuildingCount
 		&& player.canConstruct(eBuilding, false, false, true)
 		&& player.AI_getNumBuildingsNeeded(eBuilding, getDomainType() == DOMAIN_SEA) > 0)
 		{
@@ -15155,12 +15178,14 @@ int CvUnitAI::getBestConstructValue(int iMaxCount, int iMaxSingleBuildingCount, 
 		if (pLoopCity->plot()->isVisibleEnemyUnit(this)) // Koshling - this line is questionable
 			continue;
 
+		bool bCityPathChecked = false;
+		bool bCityPathOk = false;
+		int iCityPathTurns = 0;
+		CvPlot* pCityEndTurnPlot = NULL;
+
 		for (PossibleBuildingsMap::iterator itr = possibleBuildings.begin(); itr != possibleBuildings.end(); ++itr)
 		{
 			const BuildingTypes buildingType = itr->first;
-
-			if (player.getBuildingCount(buildingType) >= iMaxSingleBuildingCount)
-				continue;
 
 			// Check some other unit hasn't already got this city targeted to construct this building
 			CityConstructMap::const_iterator foundUnit = constructions.find(CityConstruct(pLoopCity->plot(), buildingType));
@@ -15183,10 +15208,19 @@ int CvUnitAI::getBestConstructValue(int iMaxCount, int iMaxSingleBuildingCount, 
 				&& canConstruct(pLoopCity->plot(), buildingType)
 				)
 			{
-				PROFILE("CvUnitAI::getBestConstructValue.Pathing");
+				if (!bCityPathChecked)
+				{
+					PROFILE("CvUnitAI::getBestConstructValue.Pathing");
+					bCityPathChecked = true;
+					bCityPathOk = generatePath(pLoopCity->plot(), MOVE_NO_ENEMY_TERRITORY, true, &iCityPathTurns);
+					pCityEndTurnPlot = bCityPathOk ? getPathEndTurnPlot() : NULL;
+				}
+				if (!bCityPathOk)
+				{
+					break;
+				}
 
-				int iPathTurns;
-				if (generatePath(pLoopCity->plot(), MOVE_NO_ENEMY_TERRITORY, true, &iPathTurns))
+				int iPathTurns = iCityPathTurns;
 				{
 					//	When evaluating whether a hero unit should instead go and produce a building
 					//	we want to avoid expensive calculations for every city, when in practise the kinds
@@ -15220,7 +15254,7 @@ int CvUnitAI::getBestConstructValue(int iMaxCount, int iMaxSingleBuildingCount, 
 					{
 						iBestValue = iValue;
 						iBestWeightedValue = iWeightedValue;
-						pBestPlot = getPathEndTurnPlot();
+						pBestPlot = pCityEndTurnPlot;
 						pBestConstructPlot = pLoopCity->plot();
 						eBestBuilding = buildingType;
 						pBestTargetingUnit = targetingUnit;
@@ -15833,6 +15867,10 @@ namespace scoring {
 	{
 		FAssert(unit);
 		FAssert(item);
+		if (unit->atPlot(item->plot()))
+		{
+			return true;
+		}
 		return unit->generateSafePathforVulnerable(item->plot());
 	}
 
@@ -30170,13 +30208,9 @@ bool CvUnitAI::AI_fulfillCityHealerNeed(const CvPlot* pPlot)
 		{
 			return getGroup()->pushMissionInternal(MISSION_SKIP, bestCity->getX(), bestCity->getY(), 0, false, false, MISSIONAI_HEAL_SUPPORT, bestCity->plot());
 		}
-		if (generateSafePathforVulnerable(bestCity->plot()))
-		{
-			const CvPlot* endTurnPlot = getPathEndTurnPlot();
-			return getGroup()->pushMissionInternal(MISSION_MOVE_TO, endTurnPlot->getX(), endTurnPlot->getY(), MOVE_IGNORE_DANGER, false, false, MISSIONAI_HEAL_SUPPORT, bestCity->plot());
-		}
-		getGroup()->pushMission(MISSION_SKIP, -1, -1, 0, false, false, MISSIONAI_WAIT_FOR_ESCORT);
-		return true;
+		// Path to bestCity->plot() was already validated and cached by canSafePathToCity in findBestScore
+		const CvPlot* endTurnPlot = getPathEndTurnPlot();
+		return getGroup()->pushMissionInternal(MISSION_MOVE_TO, endTurnPlot->getX(), endTurnPlot->getY(), MOVE_IGNORE_DANGER, false, false, MISSIONAI_HEAL_SUPPORT, bestCity->plot());
 	}
 	return false;
 }
@@ -30409,23 +30443,13 @@ bool CvUnitAI::AI_fulfillPropertyControlNeed()
 		}
 		else
 		{
-
-			if (generateSafePathforVulnerable(bestCity->plot()))
-			{
-				if (gUnitLogLevel > 2)
-				{
-					logBBAI("	Player %S Unit %S of type %S - Is moving, and vulnerable. Safe Move path generated to City %S", GET_PLAYER(getOwner()).getCivilizationDescription(0), StrUnitName.GetCString(), StrunitAIType.GetCString(), bestCity->getName().GetCString());
-				}
-				const CvPlot* endTurnPlot = getPathEndTurnPlot();
-				return getGroup()->pushMissionInternal(MISSION_MOVE_TO, endTurnPlot->getX(), endTurnPlot->getY(), MOVE_IGNORE_DANGER, false, false, MISSIONAI_PROPERTY_CONTROL_RESPONSE, bestCity->plot());
-			}
+			// Path to bestCity->plot() was already validated and cached by canSafePathToCity in findBestScore
 			if (gUnitLogLevel > 2)
 			{
-				logBBAI("	Player %S Unit %S of type %S - Generate Escort request for move to City %S  (Value %d)", GET_PLAYER(getOwner()).getCivilizationDescription(0), StrUnitName.GetCString(), StrunitAIType.GetCString(), bestCity->getName().GetCString(), bestCityScore.result.score);
+				logBBAI("	Player %S Unit %S of type %S - Is moving, and vulnerable. Safe Move path generated to City %S", GET_PLAYER(getOwner()).getCivilizationDescription(0), StrUnitName.GetCString(), StrunitAIType.GetCString(), bestCity->getName().GetCString());
 			}
-
-			getGroup()->pushMission(MISSION_SKIP, -1, -1, 0, false, false, MISSIONAI_WAIT_FOR_ESCORT);
-			return true;
+			const CvPlot* endTurnPlot = getPathEndTurnPlot();
+			return getGroup()->pushMissionInternal(MISSION_MOVE_TO, endTurnPlot->getX(), endTurnPlot->getY(), MOVE_IGNORE_DANGER, false, false, MISSIONAI_PROPERTY_CONTROL_RESPONSE, bestCity->plot());
 		}
 	}
 	else

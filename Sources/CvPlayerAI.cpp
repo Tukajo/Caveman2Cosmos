@@ -28,6 +28,7 @@
 #include "CvUnit.h"
 #include "CvUnitSelectionCriteria.h"
 #include "CvDLLFAStarIFaceBase.h"
+#include "PathCallerTag.h"
 #include "CvDLLInterfaceIFaceBase.h"
 #include "CvDLLUtilityIFaceBase.h"
 #include "BetterBTSAI.h"
@@ -13257,6 +13258,7 @@ void CvPlayerAI::AI_noteMissionAITargetCountChange(MissionAITypes eMissionAI, co
 int CvPlayerAI::AI_cityTargetUnitsByPath(const CvCity* pCity, const CvSelectionGroup* pSkipSelectionGroup, int iMaxPathTurns) const
 {
 	PROFILE_FUNC();
+	PATH_CALLER_TAG();
 
 	int iCount = 0;
 
@@ -13306,6 +13308,7 @@ int CvPlayerAI::AI_unitTargetMissionAIs(const CvUnit* pUnit, MissionAITypes* aeM
 int CvPlayerAI::AI_unitTargetMissionAIs(const CvUnit* pUnit, MissionAITypes* aeMissionAI, int iMissionAICount, const CvSelectionGroup* pSkipSelectionGroup, int iMaxPathTurns, bool bCargo) const
 {
 	PROFILE_FUNC();
+	PATH_CALLER_TAG();
 
 	int iCount = 0;
 
@@ -26543,6 +26546,7 @@ void CvPlayerAI::AI_changeAttitudeCache(const PlayerTypes ePlayer, const int iCh
 CvCity* CvPlayerAI::getInquisitionRevoltCity(const CvUnit* pUnit, const bool bNoUnit, int iRevIndexThreshold, const int iTrendThreshold) const
 {
 	PROFILE_EXTRA_FUNC();
+	PATH_CALLER_TAG();
 	FAssert(pUnit != NULL);
 	if (!(hasInquisitionTarget()))
 	{
@@ -26580,6 +26584,7 @@ CvCity* CvPlayerAI::getInquisitionRevoltCity(const CvUnit* pUnit, const bool bNo
 CvCity* CvPlayerAI::getTeamInquisitionRevoltCity(const CvUnit* pUnit, const bool bNoUnit, int iRevIndexThreshold, const int iTrendThreshold) const
 {
 	PROFILE_EXTRA_FUNC();
+	PATH_CALLER_TAG();
 	FAssert(pUnit != NULL);
 	if (!(hasInquisitionTarget()))
 	{
@@ -26628,6 +26633,7 @@ CvCity* CvPlayerAI::getTeamInquisitionRevoltCity(const CvUnit* pUnit, const bool
 CvCity* CvPlayerAI::getReligiousVictoryTarget(const CvUnit* pUnit, const bool bNoUnit) const
 {
 	PROFILE_EXTRA_FUNC();
+	PATH_CALLER_TAG();
 	FAssert(pUnit != NULL);
 
 	if (!hasInquisitionTarget() || (!isPushReligiousVictory() && !isConsiderReligiousVictory()))
