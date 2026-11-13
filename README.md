@@ -4,7 +4,7 @@
   <img alt="Coverity Scan Build Status"
        src="https://scan.coverity.com/projects/19071/badge.svg"/>
 </a>
-### [Forums](https://forums.civfanatics.com/forums/civ4-caveman-2-cosmos.449//)  |  [Discord](https://discord.com/invite/KWGvV7eWsN)  |  [Developers Guide](https://github.com/caveman2cosmos/Caveman2Cosmos/wiki/Developer-Guide)
+### [Forums](https://forums.civfanatics.com/forums/civ4-caveman-2-cosmos.449//)  |  [Discord](https://discord.com/invite/KWGvV7eWsN)  |  [Developers Guide](https://github.com/caveman2cosmos/Caveman2Cosmos/wiki/Developer-Guide)  |  [Build Instructions](BUILD.md)
 
 Caveman2Cosmos is a [CivFanatics.com](https://www.civfanatics.com) community mod that adds new features, gameplay, and content to the Civilization 4 experience.
 It is the most expansive Civilization 4: BTS mod to date with almost daily updates since November 2010.
@@ -14,3 +14,6 @@ past and present modders to create a mod to "rule them all".
 It is currently being developed by StrategyOnly Productions with a modding team made up of prominent members of [CivFanatics.com](https://www.civfanatics.com).
 
 ### Players: please use either the latest [stable release on moddb](https://forums.civfanatics.com/resources/caveman2cosmos.15324/), or the [SVN beta release](https://github.com/caveman2cosmos/Caveman2Cosmos/wiki/Using-SVN) if you want to help test cutting edge functionality.
+
+### Development & Building
+For step-by-step instructions on setting up toolchain dependencies, compiling `CvGameCoreDLL.dll` on Windows or Linux (Wine), running tests, and linking the mod to your Civilization IV installation, see [BUILD.md](BUILD.md).
