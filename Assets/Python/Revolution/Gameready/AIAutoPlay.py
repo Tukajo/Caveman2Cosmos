@@ -2,6 +2,7 @@
 # AI_AUTO_PLAY_MOD
 #
 from CvPythonExtensions import *
+import os
 import RevDefs
 import SdToolKit
 import RevUtils
@@ -28,6 +29,9 @@ class AIAutoPlay :
 
 		self.refortify = True
 		self.bSaveAllDeaths = True
+		self.bBenchmarkMode = False
+		self.iBenchmarkTurns = 0
+		self.iBenchmarkStartTurn = 0
 		self.bEnableNextTurnArray = []
 		self.bDisableNextTurnArray = []
 		self.bDisableNextTurnArray2 = []
@@ -99,6 +103,20 @@ class AIAutoPlay :
 			if CyPlayer.isHumanDisabled() and not GAME.isForcedAIAutoPlay(i):
 				GAME.setAIAutoPlay(i, 1)
 
+		# Headless/automated benchmark hook: opt-in via C2C_BENCHMARK_TURNS=<N>
+		if not GAME.isMultiplayer():
+			benchEnv = os.environ.get("C2C_BENCHMARK_TURNS", "")
+			if benchEnv:
+				try:
+					nBenchTurns = int(benchEnv)
+				except ValueError:
+					nBenchTurns = 0
+				if nBenchTurns > 0:
+					self.bBenchmarkMode = True
+					self.iBenchmarkTurns = nBenchTurns
+					self.iBenchmarkStartTurn = GAME.getGameTurn()
+					GAME.setAIAutoPlay(GAME.getActivePlayer(), nBenchTurns)
+
 	def onVictory(self, argsList):
 		self.checkPlayer(GAME.getActivePlayer())
 		for i in range(GC.getMAX_PC_PLAYERS()):
@@ -110,6 +128,11 @@ class AIAutoPlay :
 		iGameTurn, iPlayer = argsList
 		iPlayerAct = GAME.getActivePlayer()
 		CyPlayerAct = GC.getActivePlayer()
+
+		if self.bBenchmarkMode and iPlayer == iPlayerAct and GAME.getAIAutoPlay(iPlayerAct) == 0:
+			if iGameTurn >= self.iBenchmarkStartTurn + self.iBenchmarkTurns:
+				print "AIAutoPlay benchmark complete (%d turns), exiting." % self.iBenchmarkTurns
+				os._exit(0)
 
 		if GAME.getAIAutoPlay(iPlayer) == 1 and CyPlayerAct and iPlayer > iPlayerAct and CyPlayerAct.isAlive():
 			# Forces isHuman checks to come through positive for everything after human players turn
