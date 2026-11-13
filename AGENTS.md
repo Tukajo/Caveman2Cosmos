@@ -146,7 +146,8 @@ Follow this closed loop for every performance or debugging iteration:
    ```bash
    python3 /mnt/disk2/Code/Caveman2Cosmos/Tools/run_turn_benchmark.py --turns 3 --save "<pinned_save_path>"
    ```
-   *(Omit `--save` to use the newest autosave. Pass `--no-deploy` to re-run without re-copying `Build/Release` or clearing cache.)*
+   *(Omit `--save` to auto-boot the newest pinned baseline in `~/bench_saves/baseline_turn*.CivBeyondSwordSave`
+   (currently `baseline_turn1086`), falling back to the newest engine autosave. Pass `--no-deploy` to re-run without re-copying `Build/Release` or clearing cache.)*
 5. **Verify & Decide:**
    - Check `PythonErr.log` (and `init.log` / `BBAI.log` if anything abnormal happened) to confirm no errors.
    - Compare same-turn buckets (`DURATION_MS`, `SETACTIVE_MS`, `CITY_DOPROD_MS`, `MOVES_MS`, `PATH_MS`, `PATH_COUNT`, `REACHABLE_MS`, and top path callers) against the baseline.

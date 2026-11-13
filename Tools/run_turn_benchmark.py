@@ -28,15 +28,21 @@ STEAM_COMPAT_CLIENT = os.path.expanduser("~/.steam/debian-installation")
 COMPAT_DATA = "/mnt/disk2/SteamLibrary/steamapps/compatdata/8800"
 CACHE_DIR = f"{COMPAT_DATA}/pfx/drive_c/users/steamuser/AppData/Local/My Games/Beyond the Sword/cache"
 AUTOSAVE_DIR = f"{COMPAT_DATA}/pfx/drive_c/users/steamuser/Documents/My Games/Beyond the Sword/Saves/single/auto"
+BENCH_SAVE_DIR = os.path.expanduser("~/bench_saves")
 
 PLAYER_LOG = f"{BTS_DIR}/PlayerTurnTiming.log"
 PATH_LOG = f"{BTS_DIR}/PathCallerTiming.log"
 
 
-def find_latest_save():
+def find_default_save():
+    """Prefer the newest pinned baseline (~/bench_saves/baseline_turn*.CivBeyondSwordSave),
+    fall back to the newest engine autosave."""
+    pinned = glob.glob(f"{BENCH_SAVE_DIR}/baseline_turn*.CivBeyondSwordSave")
+    if pinned:
+        return max(pinned, key=os.path.getmtime)
     saves = glob.glob(f"{AUTOSAVE_DIR}/*.CivBeyondSwordSave")
     if not saves:
-        raise FileNotFoundError(f"No autosaves found in {AUTOSAVE_DIR}")
+        raise FileNotFoundError(f"No pinned baselines in {BENCH_SAVE_DIR} and no autosaves in {AUTOSAVE_DIR}")
     return max(saves, key=os.path.getmtime)
 
 
@@ -132,13 +138,14 @@ def summarize_logs(player_text, path_text):
 
 def main():
     parser = argparse.ArgumentParser(description="Run unattended C2C turn benchmark via Proton.")
-    parser.add_argument("--save", default=None, help="Path to .CivBeyondSwordSave (default: latest autosave)")
+    parser.add_argument("--save", default=None,
+                        help="Path to .CivBeyondSwordSave (default: newest pinned baseline in ~/bench_saves, else latest autosave)")
     parser.add_argument("--turns", type=int, default=3, help="Number of AIAutoPlay turns to run (default: 3)")
     parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds (default: 300)")
     parser.add_argument("--no-deploy", action="store_true", help="Skip copying Build/Release DLL/PDB and clearing cache")
     args = parser.parse_args()
 
-    save_path = args.save or find_latest_save()
+    save_path = args.save or find_default_save()
     if not os.path.exists(save_path):
         print(f"Save not found: {save_path}", file=sys.stderr)
         return 1
