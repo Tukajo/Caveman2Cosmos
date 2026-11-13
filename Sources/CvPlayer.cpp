@@ -4,6 +4,7 @@
 #include "FProfiler.h"
 
 #include "CvGameCoreDLL.h"
+#include "StackPromotions.h"
 #include "CvArea.h"
 #include "CvArtFileMgr.h"
 #include "CvBuildingInfo.h"
@@ -2568,7 +2569,7 @@ void CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bTrade, bool b
 
 		foreach_(const BuildingTypes eType, pOldCity->getHasBuildings())
 		{
-			if (!GC.getBuildingInfo(eType).isNeverCapture() && !isProductionMaxedBuilding(eType, true)
+			if ((!bConquest || !GC.getBuildingInfo(eType).isNeverCapture()) && !isProductionMaxedBuilding(eType, true)
 			&& (!bConquest || bRecapture || GC.getGame().getSorenRandNum(100, "Capture Probability") < GC.getBuildingInfo(eType).getConquestProbability()))
 			{
 				buildingLedger.insert(std::make_pair(eType, pOldCity->getBuildingData(eType)));
@@ -11952,7 +11953,7 @@ void CvPlayer::setCombatExperience(int iExperience, UnitTypes eGGType)
 	}
 	m_iCombatExperience = iExperience;
 
-	if (!isNPC() || isHominid())
+	if (!isNPC())
 	{
 		const int iExperienceThreshold = greatPeopleThresholdMilitary();
 
@@ -13031,6 +13032,7 @@ void CvPlayer::setTeam(TeamTypes eTeam)
 	GET_TEAM(eOldTeam).changeTotalLand(-(getTotalLand()));
 
 	GC.getInitCore().setTeam(getID(), eTeam);
+	StackPromotions::reset(); // Team membership changes both plot pools.
 
 	if (isAlive())
 	{
@@ -15136,7 +15138,7 @@ int CvPlayer::findPathLength(TechTypes eTech, bool bCost) const
 			}
 		}
 
-		// Nettoyage m�moire obligatoire (sinon fuite)
+		// Nettoyage mďż˝moire obligatoire (sinon fuite)
 		for (size_t i = 0; i < possiblePaths.size(); ++i)
 		{
 			delete possiblePaths[i];
@@ -21898,6 +21900,15 @@ EventTriggeredData* CvPlayer::initTriggeredData(EventTriggerTypes eEventTrigger,
 		}
 	}
 
+	if (!pPlot && pOtherPlayerCity)
+	{
+		// Trigger has no plot of its own (e.g. no bPickCity) but refers to a foreign
+		// city via bPickOtherPlayerCity - show/record that city's location instead of
+		// leaving pPlot NULL, which collapses to INVALID_PLOT_COORD and shows a bogus
+		// map location for the event popup.
+		pPlot = pOtherPlayerCity->plot();
+	}
+
 	EventTriggeredData* pTriggerData = addEventTriggered();
 
 	pTriggerData->m_eTrigger = eEventTrigger;
@@ -27568,7 +27579,16 @@ int CvPlayer::doMultipleResearch(int iOverflow)
 		{
 			AI_chooseResearch();
 		}
+
+		// Safety net: AI_chooseResearch() above is what actually advances the queue head for
+		// AI players. Humans get nothing here - this just hopes setHasTech()'s internal
+		// popResearch() moved the head past eCurrentTech. If it didn't (empty queue, a
+		// re-queued/duplicate tech, etc.), the loop condition above trivially stays true on an
+		// already-completed tech (cost - progress <= 0 <= iOverflow) and spins forever. Bail if
+		// the head didn't actually move.
+		const TechTypes ePreviousTech = eCurrentTech;
 		eCurrentTech = getCurrentResearch();
+		if (eCurrentTech == ePreviousTech) break;
 	}
 	return std::max(0, iOverflow);
 }
@@ -31599,7 +31619,7 @@ void CvPlayer::deleteArmy(int iArmyID)
 	if (pArmy != NULL)
 	{
 		pArmy->disband();       // nettoyer les groupes
-		m_armies.removeAt(iArmyID); // supprime l’objet de la liste
+		m_armies.removeAt(iArmyID); // supprime lâ€™objet de la liste
 	}
 }
 

@@ -5167,6 +5167,7 @@ class CvMainInterface:
 			return
 
 		if szPlotHelp == self.szPlotHelp:
+			pyTT.makeTooltip(screen, -12, self.yBotBar + 8, szPlotHelp, uFont or self.aFontList[5], "PlotHelp")
 			screen.moveToFront("PlotHelp")
 			screen.show("PlotHelp")
 			return

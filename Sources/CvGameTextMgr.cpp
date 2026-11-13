@@ -14,6 +14,7 @@
 #include "FProfiler.h"
 #include "CvGameCoreUtils.h"
 #include "CvGameCoreDLL.h"
+#include "StackPromotions.h"
 #include "CvArea.h"
 #include "CvArtFileMgr.h"
 #include "CvBuildingInfo.h"
@@ -661,7 +662,7 @@ void CvGameTextMgr::setUnitHelp(CvWStringBuffer &szString, const CvUnit* pUnit, 
 
 	for (int iI = 0; iI < GC.getNumPromotionInfos(); ++iI)
 	{
-		if (pUnit->isHasPromotion((PromotionTypes)iI) && !pUnit->isPromotionOverriden((PromotionTypes)iI))
+		if ((pUnit->isHasPromotion((PromotionTypes)iI) || StackPromotions::has(*pUnit, (PromotionTypes)iI)) && !pUnit->isPromotionOverriden((PromotionTypes)iI))
 		{
 			szTempBuffer.Format(L"<img=%S size=16 />", GC.getPromotionInfo((PromotionTypes)iI).getButton());
 			szString.append(szTempBuffer);
@@ -17377,6 +17378,8 @@ void CvGameTextMgr::setTechHelp(CvWStringBuffer &szBuffer, TechTypes eTech, bool
 	buildPermanentAllianceString(szBuffer, eTech, true, bPlayerContext);
 
 	const CvTechInfo& kTech = GC.getTechInfo(eTech);
+	if (StackPromotions::enabled() && kTech.getStackSupportLimitChange() != 0)
+		szBuffer.append(gDLL->getText("TXT_KEY_STACK_SUPPORT_TECH_LIMIT", kTech.getStackSupportLimitChange()));
 	// Enables Embassies...
 	buildEmbassyString(szBuffer, eTech, true, bPlayerContext);
 
@@ -20328,6 +20331,94 @@ void CvGameTextMgr::setBasicUnitHelpWithCity(CvWStringBuffer &szBuffer, UnitType
 				szTempBuffer.Format(L"%s%s", NEWLINE, gDLL->getText("TXT_KEY_BULLET_STARTS_WITH").c_str());
 				setListHelp(szBuffer, szTempBuffer, CvWString::format(L"<link=%s>%s</link>", CvWString(GC.getPromotionInfo((PromotionTypes)iI).getType()).GetCString(), GC.getPromotionInfo((PromotionTypes) iI).getDescription()), L", ", bFirst);
 				bFirst = false;
+			}
+		}
+
+		//Free Promos from Buildings (mirrors the Free Experience preview above)
+		if (pCity)
+		{
+			bFirst = true;
+			const UnitCombatTypes eCombatType = (UnitCombatTypes)kUnit.getUnitCombatType();
+
+			foreach_(const BuildingTypes eBuildingX, pCity->getHasBuildings())
+			{
+				if (pCity->isDisabledBuilding(eBuildingX))
+				{
+					continue;
+				}
+				const CvBuildingInfo& kBuildingX = GC.getBuildingInfo(eBuildingX);
+				foreach_(const FreePromoTypes& freePromo, kBuildingX.getFreePromoTypes())
+				{
+					const CvPromotionInfo& promoCheck = GC.getPromotionInfo(freePromo.ePromotion);
+					bool bExcluded = eCombatType != NO_UNITCOMBAT && promoCheck.isNotOnUnitCombatType(eCombatType);
+					if (!bExcluded)
+					{
+						foreach_(const UnitCombatTypes eSubCombat, kUnit.getSubCombatTypes())
+						{
+							if (promoCheck.isNotOnUnitCombatType(eSubCombat))
+							{
+								bExcluded = true;
+								break;
+							}
+						}
+					}
+					if (bExcluded)
+					{
+						continue;
+					}
+					if (bFirst)
+					{
+						szBuffer.append(NEWLINE);
+						szBuffer.append(gDLL->getText("TXT_KEY_UNITHELP_WILL_RECEIVE_FREE_PROMOTION"));
+					}
+					bFirst = false;
+					szBuffer.append(NEWLINE);
+					const CvPromotionInfo& promo = GC.getPromotionInfo(freePromo.ePromotion);
+					szBuffer.append(gDLL->getText("TXT_KEY_BUILDING_FREE_PROMOTION", CvWString(promo.getType()).GetCString(), promo.getTextKeyWide(), kBuildingX.getTextKeyWide()));
+				}
+			}
+
+			// Buildings you could construct that would also grant a free promotion
+			for (int iI = 0; iI < GC.getNumBuildingInfos(); ++iI)
+			{
+				if (pCity->isActiveBuilding((BuildingTypes)iI))
+				{
+					continue;
+				}
+				const CvBuildingInfo& kBuildingX = GC.getBuildingInfo((BuildingTypes)iI);
+				if (kBuildingX.getFreePromoTypes().empty() || !pCity->canConstruct((BuildingTypes)iI, false, true))
+				{
+					continue;
+				}
+				foreach_(const FreePromoTypes& freePromo, kBuildingX.getFreePromoTypes())
+				{
+					const CvPromotionInfo& promoCheck = GC.getPromotionInfo(freePromo.ePromotion);
+					bool bExcluded = eCombatType != NO_UNITCOMBAT && promoCheck.isNotOnUnitCombatType(eCombatType);
+					if (!bExcluded)
+					{
+						foreach_(const UnitCombatTypes eSubCombat, kUnit.getSubCombatTypes())
+						{
+							if (promoCheck.isNotOnUnitCombatType(eSubCombat))
+							{
+								bExcluded = true;
+								break;
+							}
+						}
+					}
+					if (bExcluded)
+					{
+						continue;
+					}
+					if (bFirst)
+					{
+						szBuffer.append(NEWLINE);
+						szBuffer.append(gDLL->getText("TXT_KEY_UNITHELP_WILL_RECEIVE_FREE_PROMOTION"));
+					}
+					bFirst = false;
+					szBuffer.append(NEWLINE);
+					const CvPromotionInfo& promo = GC.getPromotionInfo(freePromo.ePromotion);
+					szBuffer.append(gDLL->getText("TXT_KEY_NO_BUILDING_FREE_PROMOTION", CvWString(promo.getType()).GetCString(), promo.getTextKeyWide(), kBuildingX.getTextKeyWide()));
+				}
 			}
 		}
 
@@ -27969,7 +28060,8 @@ bool CvGameTextMgr::buildPromotionString(CvWStringBuffer &szBuffer, TechTypes eT
 
 	const CvPromotionInfo& kPromotionForTechHelp = GC.getPromotionInfo((PromotionTypes) iPromotionType);
 
-	if (kPromotionForTechHelp.getTechPrereq() == eTech)
+	if (kPromotionForTechHelp.getTechPrereq() == eTech
+	&& (kPromotionForTechHelp.getStackSupportKind() == 0 || StackPromotions::enabled()))
 	{
 		for (int iI = 0; iI < kPromotionForTechHelp.getNumOnGameOptions(); iI++)
 		{
@@ -28134,6 +28226,7 @@ void CvGameTextMgr::buildTechTreeString(CvWStringBuffer &szBuffer, TechTypes eTe
 
 void CvGameTextMgr::setPromotionHelp(CvWStringBuffer &szBuffer, PromotionTypes ePromotion, bool bCivilopediaBodyText)
 {
+	if (ePromotion == NO_PROMOTION) return;
 	CvUnit*	pUnit = gDLL->getInterfaceIFace()->getHeadSelectedUnit();
 
 	// Hide overridden promotions if there is a selected unit and this is not a pedia request
@@ -28150,6 +28243,14 @@ void CvGameTextMgr::setPromotionHelp(CvWStringBuffer &szBuffer, PromotionTypes e
 			szBuffer.append(szTempBuffer);
 		}
 		parsePromotionHelpInternal(szBuffer, ePromotion, NEWLINE, !GC.getIsInPedia());
+        const CvPromotionInfo& aid = GC.getPromotionInfo(ePromotion);
+        if (aid.getStackSupportKind() == 1 && aid.getTechPrereq() != NO_TECH)
+        {
+            szBuffer.append(NEWLINE);
+            szBuffer.append(gDLL->getText("TXT_KEY_REQUIRES_LINK",
+                CvWString(GC.getTechInfo(aid.getTechPrereq()).getType()).c_str(),
+                GC.getTechInfo(aid.getTechPrereq()).getTextKeyWide()));
+        }
 	}
 }
 
