@@ -30,11 +30,47 @@ This repository is the Caveman2Cosmos (C2C) DLL/mod workspace. When debugging cr
 
 ## 2. Log Locations
 
-- **DLL Turn & Path Timing Logs** (append-only, in BtS install directory):
-  - `/mnt/disk2/SteamLibrary/steamapps/common/Sid Meier's Civilization IV Beyond the Sword/Beyond the Sword/PlayerTurnTiming.log`
-  - `/mnt/disk2/SteamLibrary/steamapps/common/Sid Meier's Civilization IV Beyond the Sword/Beyond the Sword/PathCallerTiming.log`
+- **DLL Turn & Path Timing / Benchmark Logs** (append-only, in BtS install directory,
+  `/mnt/disk2/SteamLibrary/steamapps/common/Sid Meier's Civilization IV Beyond the Sword/Beyond the Sword/`):
+  - `PlayerTurnTiming.log`, `PathCallerTiming.log`, `TurnBenchmark.log`, `TurnBenchmarkDetailed.log`
 - **Engine / Python / BBAI Logs** (in Proton prefix):
   - `/mnt/disk2/SteamLibrary/steamapps/compatdata/8800/pfx/drive_c/users/steamuser/Documents/My Games/Beyond the Sword/Logs/` (`PythonErr.log`, `PythonDbg.log`, `C2C.log`, `BBAI.log`, `xml.log`, etc.)
+
+### Log Hygiene: Clear/Backup Logs **Between** Debug Iterations
+
+All of the above logs are append-only across runs, reloads, and replays, so previous
+experiments pollute every later analysis. **Before each new benchmark/debug run** (game
+process not running), move the timing logs out and truncate the engine-held logs so each
+iteration starts with clean, single-session files:
+
+```bash
+BTS_DIR="/mnt/disk2/SteamLibrary/steamapps/common/Sid Meier's Civilization IV Beyond the Sword/Beyond the Sword"
+GAME_LOGS="/mnt/disk2/SteamLibrary/steamapps/compatdata/8800/pfx/drive_c/users/steamuser/Documents/My Games/Beyond the Sword/Logs"
+BACKUP="$HOME/bench_logs/$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$BACKUP"
+
+# DLL timing/benchmark logs: game is exited between runs, so MOVE them into the backup dir
+for f in PlayerTurnTiming.log PathCallerTiming.log TurnBenchmark.log TurnBenchmarkDetailed.log; do
+    [ -f "$BTS_DIR/$f" ] && mv -f "$BTS_DIR/$f" "$BACKUP/$f"
+done
+
+# Engine/Python logs: the engine may reopen/handle these — copy then TRUNCATE in place, never delete
+for f in PythonErr.log PythonDbg.log C2C.log BBAI.log init.log; do
+    [ -f "$GAME_LOGS/$f" ] && { cp -f "$GAME_LOGS/$f" "$BACKUP/$f"; : > "$GAME_LOGS/$f"; }
+done
+
+# Optional retention: keep only the 10 most recent backup sessions
+ls -1dt "$HOME"/bench_logs/*/ 2>/dev/null | tail -n +11 | xargs -r rm -rf
+```
+
+- Save the `$BACKUP` path alongside the benchmark result so the exact raw logs for that
+  iteration stay reviewable (the harness's `/tmp/opencode/bench_<stamp>/` copies only its
+  newly appended byte-diff).
+- After this rotation, each run's log contains exactly one contiguous session, so
+  `tail -n +1`/full-file analysis is safe; the session-splitting rules in Rule 2 remain
+  a fallback for ad-hoc or interrupted runs.
+- Never rotate logs **while** `Civ4BeyondSword.exe` is running (a stale second instance
+  will silently re-open and re-create them; `pgrep -fa run_turn_benchmark` first).
 
 ---
 
@@ -48,7 +84,7 @@ Before optimizing any suspected loop:
    - **Path caller tags (`PathCallerTiming.log`)**: `#include "PathCallerTag.h"` and add `PATH_CALLER_TAG();` at the top of any function calling `generatePath(...)` that currently shows up as `(untagged)`.
 
 ### Rule 2: Analyze Logs by Contiguous Session & AI-Only Filtering
-- Timing logs are **append-only** and saves may be reloaded/replayed. Never blindly sum the whole file or tail N arbitrary lines without checking turn continuity.
+- Timing logs are **append-only** and saves may be reloaded/replayed. Never blindly sum the whole file or tail N arbitrary lines without checking turn continuity — unless the Section 2 log-hygiene rotation was run first, in which case the files contain only the newest session.
 - Split logs into contiguous sessions (detecting where new instrumentation fields appear or where `TURN` decreases).
 - Filter `HUMAN=0` when measuring AI turn latency (human `DURATION_MS` includes idle UI thinking time).
 - When comparing before/after an optimization, prefer **same-turn replay comparisons** (e.g., reloading and re-taking the exact same turns) so unit counts, city counts, and wars match.
@@ -104,6 +140,9 @@ Follow this closed loop for every performance or debugging iteration:
    cd /mnt/disk2/Code/Caveman2Cosmos/Sources && WINEDEBUG=-all wine ../Tools/FBuild.exe -summary -wait Release-build
    ```
 4. **Run Unattended Proton Benchmark (always pin `--save` for A/B comparisons):**
+   First rotate the logs per **Section 2 “Log Hygiene”** so this iteration's files contain
+   only this run (the harness byte-diff keeps working, but raw logs stay human-readable
+   and free of prior-run pollution). Then:
    ```bash
    python3 /mnt/disk2/Code/Caveman2Cosmos/Tools/run_turn_benchmark.py --turns 3 --save "<pinned_save_path>"
    ```
