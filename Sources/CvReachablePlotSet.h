@@ -82,6 +82,8 @@ protected:
 	int					m_iOutsideOwnedRange;
 	CvReachablePlotSet* m_proxyTo;
 	bool				m_bCachable;
+	int					m_iStatEdges;	// per-build instrumentation: adjacency candidates evaluated
+	int					m_iStatPlots;	// per-build instrumentation: plots inserted into the set
 };
 
 #endif // CvReachablePlotSet_h__

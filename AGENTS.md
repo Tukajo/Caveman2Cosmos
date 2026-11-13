@@ -71,6 +71,14 @@ ls -1dt "$HOME"/bench_logs/*/ 2>/dev/null | tail -n +11 | xargs -r rm -rf
   a fallback for ad-hoc or interrupted runs.
 - Never rotate logs **while** `Civ4BeyondSword.exe` is running (a stale second instance
   will silently re-open and re-create them; `pgrep -fa run_turn_benchmark` first).
+- **Benchmark launch hangs before engine init = check the GPU first.** If a local
+  inference server (e.g. `~/Strata/engine/strata --serve`) holds most VRAM and pins the
+  GPU at 100%, Civ4's DXVK device init blocks forever (symptom: process alive at 0 CPU,
+  1 Wine thread in `futex_wait`, empty `app.log`/`PythonDbg.log`, no timing logs).
+  `nvidia-smi` before launching; free ≥4 GB VRAM. To kill a stuck run, remember Wine
+  truncates process names to 15 chars (`Civ4BeyondSword`, no `.exe`) and `pkill -f` can
+  match your own shell command line — prefer `wineserver -k` with
+  `WINEPREFIX=.../compatdata/8800/pfx`.
 
 ---
 

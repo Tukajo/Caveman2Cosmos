@@ -171,6 +171,7 @@ def main():
     mod_ini = re.sub(r"(?mi)^gametype\s*=.*$", "GameType = spLoad", mod_ini)
     mod_ini = re.sub(r"(?mi)^filename\s*=.*$", "FileName = bench.CivBeyondSwordSave", mod_ini)
     mod_ini = re.sub(r"(?mi)^nointromovie\s*=.*$", "NoIntroMovie = 1", mod_ini)
+    mod_ini = re.sub(r"(?mi)^autosaveinterval\s*=.*$", "AutoSaveInterval = 0", mod_ini)
 
     exe = f"{BTS_DIR}/Civ4BeyondSword.exe"
     cmd = [PROTON_BIN, "run", exe]
@@ -189,7 +190,11 @@ def main():
         proc = subprocess.run(cmd, env=env, cwd=BTS_DIR, timeout=args.timeout)
         print(f"BtS exited with code {proc.returncode}")
     except subprocess.TimeoutExpired:
-        subprocess.run(["killall", "-9", "Civ4BeyondSword.exe"], stderr=subprocess.DEVNULL)
+        # Wine truncates the process name to 15 chars ("Civ4BeyondSword"), so
+        # killall by .exe name silently misses it; kill the whole prefix instead.
+        subprocess.run(["killall", "-9", "Civ4BeyondSword.exe", "Civ4BeyondSword"], stderr=subprocess.DEVNULL)
+        subprocess.run([os.path.dirname(PROTON_BIN) + "/files/bin/wineserver", "-k"],
+                       env={**env, "WINEPREFIX": f"{COMPAT_DATA}/pfx"}, stderr=subprocess.DEVNULL)
         print(f"ERROR: Benchmark timed out after {args.timeout}s", file=sys.stderr)
         return 1
     finally:

@@ -105,6 +105,11 @@ static double s_playerMergeCheckMs[MAX_PLAYERS] = { 0.0 };
 static int s_playerMergeCheckCount[MAX_PLAYERS] = { 0 };
 static double s_playerReachableMs[MAX_PLAYERS] = { 0.0 };
 static int s_playerReachableCount[MAX_PLAYERS] = { 0 };
+static double s_playerReachBuildMs[MAX_PLAYERS] = { 0.0 };
+static int s_playerReachBuilds[MAX_PLAYERS] = { 0 };
+static int s_playerReachUnbounded[MAX_PLAYERS] = { 0 };
+static int s_playerReachEdges[MAX_PLAYERS] = { 0 };
+static int s_playerReachPlots[MAX_PLAYERS] = { 0 };
 
 // Nesting depth of CvPathGenerator::generatePath (main thread only).
 // Used so that only the outermost path call is timed and so that danger
@@ -428,6 +433,18 @@ void addPlayerReachableMs(int iPlayer, double dMs)
 	}
 }
 
+void addPlayerReachStats(int iPlayer, double buildMs, int builds, int unbounded, int edgeChecks, int plotsAdded)
+{
+	if (iPlayer >= 0 && iPlayer < MAX_PLAYERS)
+	{
+		s_playerReachBuildMs[iPlayer] += buildMs;
+		s_playerReachBuilds[iPlayer] += builds;
+		s_playerReachUnbounded[iPlayer] += unbounded;
+		s_playerReachEdges[iPlayer] += edgeChecks;
+		s_playerReachPlots[iPlayer] += plotsAdded;
+	}
+}
+
 static void startPlayerTurnTiming(int iPlayer)
 {
 	if (iPlayer < 0 || iPlayer >= MAX_PLAYERS) return;
@@ -481,6 +498,11 @@ static void startPlayerTurnTiming(int iPlayer)
 	s_playerMergeCheckCount[iPlayer] = 0;
 	s_playerReachableMs[iPlayer] = 0.0;
 	s_playerReachableCount[iPlayer] = 0;
+	s_playerReachBuildMs[iPlayer] = 0.0;
+	s_playerReachBuilds[iPlayer] = 0;
+	s_playerReachUnbounded[iPlayer] = 0;
+	s_playerReachEdges[iPlayer] = 0;
+	s_playerReachPlots[iPlayer] = 0;
 	s_pathCallerStats[iPlayer].clear();
 	s_pathCallerOuterEntries[iPlayer].clear();
 	s_iPathCallerTimedPlayer = iPlayer;
@@ -610,7 +632,7 @@ static void stopPlayerTurnTiming(int iPlayer, int iTurn, bool bHuman, bool bNPC,
 		{
 			snprintf(szWsecTop, sizeof(szWsecTop), "-");
 		}
-		fprintf(f, "TURN %d PLAYER %d DURATION_MS=%d SETACTIVE_MS=%d WAITUI_MS=%d DOTURN_MS=%d DOTURN_PRE_MS=%d DOTURN_CITIES_MS=%d CITY_INIT_MS=%d CITY_AIDO_MS=%d CITY_CHKPROD_MS=%d CITY_PLOTGRP_MS=%d CITY_AUTOBUILD_MS=%d CITY_DOPROD_MS=%d CITY_POST_MS=%d CITY_PYEVENT_MS=%d DOTURN_TRADE_MS=%d DOTURN_POST_MS=%d DOTURNUNITS_MS=%d DANGER_MS=%d MOVES_MS=%d AUTO_MS=%d UNITUPDATE_MS=%d GROUPUPDATE_MS=%d GROUPUPDATE_COUNT=%d UNITMOVES_MS=%d UNITMOVES_COUNT=%d SORT_MS=%d PATH_MS=%d PATH_COUNT=%d DANGERQUERY_MS=%d DANGERQUERY_COUNT=%d DANGERINPATH_MS=%d DANGERINPATH_COUNT=%d PATROL_MS=%d PATROL_COUNT=%d ANYATTACK_MS=%d ANYATTACK_COUNT=%d EXPOSEDDANGER_MS=%d EXPOSEDDANGER_COUNT=%d ATTACKODDS_MS=%d ATTACKODDS_COUNT=%d MERGECHECK_MS=%d MERGECHECK_COUNT=%d REACHABLE_MS=%d REACHABLE_COUNT=%d SETINACTIVE_MS=%d HUMAN=%d NPC=%d ALIVE=%d UNITAI_TOP_MS=%s WSECT_MS=%s\n",
+		fprintf(f, "TURN %d PLAYER %d DURATION_MS=%d SETACTIVE_MS=%d WAITUI_MS=%d DOTURN_MS=%d DOTURN_PRE_MS=%d DOTURN_CITIES_MS=%d CITY_INIT_MS=%d CITY_AIDO_MS=%d CITY_CHKPROD_MS=%d CITY_PLOTGRP_MS=%d CITY_AUTOBUILD_MS=%d CITY_DOPROD_MS=%d CITY_POST_MS=%d CITY_PYEVENT_MS=%d DOTURN_TRADE_MS=%d DOTURN_POST_MS=%d DOTURNUNITS_MS=%d DANGER_MS=%d MOVES_MS=%d AUTO_MS=%d UNITUPDATE_MS=%d GROUPUPDATE_MS=%d GROUPUPDATE_COUNT=%d UNITMOVES_MS=%d UNITMOVES_COUNT=%d SORT_MS=%d PATH_MS=%d PATH_COUNT=%d DANGERQUERY_MS=%d DANGERQUERY_COUNT=%d DANGERINPATH_MS=%d DANGERINPATH_COUNT=%d PATROL_MS=%d PATROL_COUNT=%d ANYATTACK_MS=%d ANYATTACK_COUNT=%d EXPOSEDDANGER_MS=%d EXPOSEDDANGER_COUNT=%d ATTACKODDS_MS=%d ATTACKODDS_COUNT=%d MERGECHECK_MS=%d MERGECHECK_COUNT=%d REACHABLE_MS=%d REACHABLE_COUNT=%d REACH_BUILDS=%d REACH_UNBOUND=%d REACH_EDGES=%d REACH_PLOTS=%d REACH_BUILD_MS=%d SETINACTIVE_MS=%d HUMAN=%d NPC=%d ALIVE=%d UNITAI_TOP_MS=%s WSECT_MS=%s\n",
 			iTurn, iPlayer, (int)(dMs + 0.5), (int)(s_playerSetActiveMs[iPlayer] + 0.5),
 			(int)(s_playerWaitUiMs[iPlayer] + 0.5), (int)(s_playerDoTurnMs[iPlayer] + 0.5),
 			(int)(s_playerDoTurnPreMs[iPlayer] + 0.5), (int)(s_playerDoTurnCitiesMs[iPlayer] + 0.5),
@@ -632,6 +654,8 @@ static void stopPlayerTurnTiming(int iPlayer, int iTurn, bool bHuman, bool bNPC,
 			(int)(s_playerAttackOddsMs[iPlayer] + 0.5), s_playerAttackOddsCount[iPlayer],
 			(int)(s_playerMergeCheckMs[iPlayer] + 0.5), s_playerMergeCheckCount[iPlayer],
 			(int)(s_playerReachableMs[iPlayer] + 0.5), s_playerReachableCount[iPlayer],
+			s_playerReachBuilds[iPlayer], s_playerReachUnbounded[iPlayer],
+			s_playerReachEdges[iPlayer], s_playerReachPlots[iPlayer], (int)(s_playerReachBuildMs[iPlayer] + 0.5),
 			(int)(s_playerSetInactiveMs[iPlayer] + 0.5), bHuman ? 1 : 0, bNPC ? 1 : 0, bAlive ? 1 : 0, szUnitAITop, szWsecTop);
 		fclose(f);
 	}

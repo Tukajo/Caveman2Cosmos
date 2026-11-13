@@ -103,6 +103,8 @@ CvReachablePlotSet::CvReachablePlotSet(const CvSelectionGroup * group, int iFlag
 	m_iOutsideOwnedRange = iOutsideOwnedRange;
 	m_bCachable = bCachable;
 	m_reachablePlots = NULL;
+	m_iStatEdges = 0;
+	m_iStatPlots = 0;
 
 	if ( iRange != -1 )
 	{
@@ -260,6 +262,12 @@ void CvReachablePlotSet::Populate(int iRange)
 
 	if (m_iRange < iRange)
 	{
+		LARGE_INTEGER tBuildFreq, tBuildStart, tBuildEnd;
+		QueryPerformanceFrequency(&tBuildFreq);
+		QueryPerformanceCounter(&tBuildStart);
+		m_iStatEdges = 0;
+		m_iStatPlots = 0;
+
 		std::vector<std::pair<CvPlot*,int> > seedPlots;
 
 		if ( m_iRange == -1 )
@@ -288,6 +296,11 @@ void CvReachablePlotSet::Populate(int iRange)
 		}
 		enumerateReachablePlotsInternal(iRange - getRange(), getRange()+1, seedPlots);
 		setRange(iRange);
+
+		QueryPerformanceCounter(&tBuildEnd);
+		addPlayerReachStats(m_group ? m_group->getOwner() : NO_PLAYER,
+			(double)(tBuildEnd.QuadPart - tBuildStart.QuadPart) * 1000.0 / (double)tBuildFreq.QuadPart,
+			1, (iRange == MAX_INT) ? 1 : 0, m_iStatEdges, m_iStatPlots);
 	}
 
 	m_iRange = iRange;
@@ -371,6 +384,7 @@ void CvReachablePlotSet::enumerateReachablePlotsInternal(int iRange, int iDepth,
 			{
 				if (reachablePlots->find(pAdjacentPlot) == reachablePlots->end())
 				{
+					m_iStatEdges++;
 					bool bValidAsTerminus = false;
 					bool bValid = ContextFreeNewPathValidFunc(m_group, (*itr).first->getX(), (*itr).first->getY(), pAdjacentPlot->getX(), pAdjacentPlot->getY(), m_iFlags, false, false, 0, NULL, &bValidAsTerminus);
 
@@ -404,6 +418,7 @@ void CvReachablePlotSet::enumerateReachablePlotsInternal(int iRange, int iDepth,
 						}
 
 						(*reachablePlots)[pAdjacentPlot] = info;
+					m_iStatPlots++;
 
 						if (bValid && pAdjacentPlot->isRevealed(m_group->getTeam(), false))
 						{
