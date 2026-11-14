@@ -6,6 +6,7 @@
 #include "CvCity.h"
 #include "CvGameAI.h"
 #include "CvGlobals.h"
+#include "CvGameCoreUtils.h"
 #include "CvMap.h"
 #include "CvPlot.h"
 #include "CvReachablePlotSet.h"
@@ -105,6 +106,10 @@ CvReachablePlotSet::CvReachablePlotSet(const CvSelectionGroup * group, int iFlag
 	m_reachablePlots = NULL;
 	m_iStatEdges = 0;
 	m_iStatPlots = 0;
+	m_iStatSrcPlots = 0;
+	m_iStatZocEdges = 0;
+	m_iStatDestFallback = 0;
+	m_iStatDestDead = 0;
 
 	if ( iRange != -1 )
 	{
@@ -267,6 +272,13 @@ void CvReachablePlotSet::Populate(int iRange)
 		QueryPerformanceCounter(&tBuildStart);
 		m_iStatEdges = 0;
 		m_iStatPlots = 0;
+		m_iStatSrcPlots = 0;
+		m_iStatZocEdges = 0;
+		m_iStatDestFallback = 0;
+		m_iStatDestDead = 0;
+		g_iBfsStatCacheHits = 0;
+		g_iBfsStatCacheMisses = 0;
+		g_bBfsInstrument = true;
 
 		std::vector<std::pair<CvPlot*,int> > seedPlots;
 
@@ -300,7 +312,10 @@ void CvReachablePlotSet::Populate(int iRange)
 		QueryPerformanceCounter(&tBuildEnd);
 		addPlayerReachStats(m_group ? m_group->getOwner() : NO_PLAYER,
 			(double)(tBuildEnd.QuadPart - tBuildStart.QuadPart) * 1000.0 / (double)tBuildFreq.QuadPart,
-			1, (iRange == MAX_INT) ? 1 : 0, m_iStatEdges, m_iStatPlots);
+			1, (iRange == MAX_INT) ? 1 : 0, m_iStatEdges, m_iStatPlots,
+			m_iStatZocEdges, m_iStatSrcPlots, g_iBfsStatCacheHits, g_iBfsStatCacheMisses, m_iStatDestFallback,
+			m_iStatDestDead);
+		g_bBfsInstrument = false;
 	}
 
 	m_iRange = iRange;
@@ -377,20 +392,34 @@ void CvReachablePlotSet::enumerateReachablePlotsInternal(int iRange, int iDepth,
 		std::vector<std::pair<CvPlot*,int> >	nextRing;
 
 		stdext::hash_map<CvPlot*, CvReachablePlotInfo>* reachablePlots = (m_proxyTo == NULL ? m_reachablePlots : m_proxyTo->m_reachablePlots);
+		bool bZocActive = g_bBfsInstrument && GC.getGame().isOption(GAMEOPTION_UNSUPPORTED_ZONE_OF_CONTROL);
 
 		for (std::vector<std::pair<CvPlot*,int> >::const_iterator itr = prevRing.begin(), itrend = prevRing.end(); itr != itrend; ++itr)
 		{
+			if (g_bBfsInstrument) m_iStatSrcPlots++;
 			foreach_(CvPlot* pAdjacentPlot, (*itr).first->adjacent())
 			{
 				if (reachablePlots->find(pAdjacentPlot) == reachablePlots->end())
 				{
 					m_iStatEdges++;
+					if (bZocActive) m_iStatZocEdges++;
 					bool bValidAsTerminus = false;
 					bool bValid = ContextFreeNewPathValidFunc(m_group, (*itr).first->getX(), (*itr).first->getY(), pAdjacentPlot->getX(), pAdjacentPlot->getY(), m_iFlags, false, false, 0, NULL, &bValidAsTerminus);
 
+					//	Note: when bValidAsTerminus is already true the decision below cannot change,
+					//	so NewPathDestValid is logically dead work for those edges. It still has to be
+					//	called: it is NOT a pure predicate - AI_getAnyPlotDanger mutates the shared
+					//	plot-danger LRU cache (and getActivePlayerSafeRangeCache), so skipping a lookup
+					//	changes which cached values other callers see. Counting only, do not skip.
 					if (!bValid)
 					{
 						bool bDummy;
+
+						if (g_bBfsInstrument)
+						{
+							if (bValidAsTerminus) m_iStatDestDead++;
+							else m_iStatDestFallback++;
+						}
 
 						bValidAsTerminus |= NewPathDestValid(m_group, pAdjacentPlot->getX(), pAdjacentPlot->getY(), m_iFlags, bDummy);
 					}

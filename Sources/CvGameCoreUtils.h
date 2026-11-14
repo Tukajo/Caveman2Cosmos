@@ -346,6 +346,11 @@ int countRegion(FAStarNode* parent, FAStarNode* node, int data, const void* poin
 
 bool moveToValid(const CvSelectionGroup* pSelectionGroup, const CvPlot* pToPlot, int iFlags);
 
+//	Reachable-plot BFS instrumentation counters (observability only)
+extern bool g_bBfsInstrument;
+extern int g_iBfsStatCacheHits;
+extern int g_iBfsStatCacheMisses;
+
 //	Koshling - new pathing generator callback functions
 int	NewPathHeuristicFunc(const CvSelectionGroup* pGroup, int iFromX, int iFromY, int iToX, int iToY, int& iLimitCost);
 int	NewPathCostFunc(const CvPathGeneratorBase* generator, const CvSelectionGroup* pGroup, int iFromX, int iFromY, int iToX, int iToY, int iFlags, int& iMovementRemaining, int iPathTurns, int& iToNodeCost, bool bIsTerminalNode);

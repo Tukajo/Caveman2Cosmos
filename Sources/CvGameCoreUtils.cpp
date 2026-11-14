@@ -30,6 +30,13 @@
 #define	PATH_ENEMY_CITY_WEIGHT									(500)
 #define PATH_DAMAGE_WEIGHT										(2000)
 
+//	Reachable-plot BFS instrumentation (observability only, no game semantics):
+//	set by CvReachablePlotSet while it enumerates, so path-validity cache activity
+//	can be attributed to the BFS rather than to normal pathfinding callers.
+bool g_bBfsInstrument = false;
+int g_iBfsStatCacheHits = 0;
+int g_iBfsStatCacheMisses = 0;
+
 CvPlot* plotCity(int iX, int iY, int iIndex)
 {
 	return GC.getMap().plot((iX + GC.getCityPlotX()[iIndex]), (iY + GC.getCityPlotY()[iIndex]));
@@ -3356,9 +3363,14 @@ bool ContextFreeNewPathValidFunc(const CvSelectionGroup* pSelectionGroup, int iF
 		CheckSum(iEntityId, iFlags);
 
 #ifdef PATHFINDING_VALIDITY_CACHE
-		if (!pToPlot->HaveCachedPathValidityResult((void*)iEntityId, bCheckNonInvisibleDanger, bResult))
+		if (pToPlot->HaveCachedPathValidityResult((void*)iEntityId, bCheckNonInvisibleDanger, bResult))
+		{
+			if (g_bBfsInstrument) g_iBfsStatCacheHits++;
+		}
+		else
 #endif // PATHFINDING_VALIDITY_CACHE
 		{
+			if (g_bBfsInstrument) g_iBfsStatCacheMisses++;
 			bResult = pathValidInternal(pToPlot, bCheckNonInvisibleDanger, pSelectionGroup, iFlags);
 
 #ifdef PATHFINDING_VALIDITY_CACHE

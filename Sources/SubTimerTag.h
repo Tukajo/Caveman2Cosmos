@@ -35,7 +35,8 @@ void addPlayerExposedDangerMs(int iPlayer, double dMs);
 void addPlayerAttackOddsMs(int iPlayer, double dMs);
 void addPlayerMergeCheckMs(int iPlayer, double dMs);
 void addPlayerReachableMs(int iPlayer, double dMs);
-void addPlayerReachStats(int iPlayer, double buildMs, int builds, int unbounded, int edgeChecks, int plotsAdded);
+void addPlayerReachStats(int iPlayer, double buildMs, int builds, int unbounded, int edgeChecks, int plotsAdded,
+	int zocEdges, int srcPlots, int cacheHits, int cacheMisses, int destFallback, int destDead);
 void addPlayerPathMs(int iPlayer, double dMs);
 void addPlayerDangerQueryMs(int iPlayer, double dMs, bool bInsidePath);
 void addPlayerUnitMoveMs(int iPlayer, double dMs);

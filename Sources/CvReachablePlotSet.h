@@ -84,6 +84,10 @@ protected:
 	bool				m_bCachable;
 	int					m_iStatEdges;	// per-build instrumentation: adjacency candidates evaluated
 	int					m_iStatPlots;	// per-build instrumentation: plots inserted into the set
+	int					m_iStatSrcPlots;	// distinct ring source plots
+	int					m_iStatZocEdges;	// edges evaluated with the ZoC option active
+	int					m_iStatDestFallback;	// dest-valid calls that could still change the decision
+	int					m_iStatDestDead;		// dest-valid calls whose result cannot change the decision
 };
 
 #endif // CvReachablePlotSet_h__
